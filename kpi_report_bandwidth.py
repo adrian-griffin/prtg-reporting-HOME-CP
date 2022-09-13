@@ -14,9 +14,6 @@ import numpy
 import getpass
 import json
 
-import csv
-import xlsxwriter
-
 import datetime
 import argparse
 import openpyxl as opyxl
@@ -143,6 +140,7 @@ current_sys_datetime = datetime.datetime.now()
 
 global primary_df
 global secondary_df
+global summary_df
 primary_df = pd.DataFrame(
    {'Location':["","","","","",],
     'MaxTraffic':["","","","","",],
@@ -159,20 +157,18 @@ primary_df = pd.DataFrame(
     'Action':["","","","","",]})
 
 secondary_df = pd.DataFrame(
-   {'Location':["","","","","",],
-    'MaxTraffic':["","","","","",],
-    'ChokePoint':["","","","","",],
-    'ChokePointLimit':["","","","","",],        
-    'CircuitMaxLimit':["","","","","",],        
-    'CircuitUtilization':["","","","","",],        
-    'ChokePointUtilization0':["","","","","",],        
-    'ChokePointUtilization1':["","","","","",],        
-    'ChokePointUtilization2':["","","","","",],        
-    'ChokePointUtilization3':["","","","","",],          
-    'MaxPlanUsage':["","","","","",],            
-    'Notes':["","","","","",],    
-    'Action':["","","","","",]})
+   {'kpi_choke':["","","","","",],
+    'kpi_chokelimit':["","","","","",],
+    'kpi_cktmaxlimit':["","","","","",],
+    'ChokePointLimit':["","","","","",]})
 
+summary_df = pd.DataFrame(
+   {'Core':["","","","","",],
+    'Bandwidth':["","","","","",],
+    'MaxCapacity':["","","","","",],
+    'Utilization0':["","","","","",],
+    'Utilization1':["","","","","",],
+    'Utilization2':["","","","","",]})
 
 
 
@@ -190,11 +186,14 @@ def get_kpi_sensor_ids(username, password):
     """
     ### PRTG API call
 
+    response = requests.get('https://nanm.smartaira.net/api/table.json?content=sensors&output=json&columns=objid,device,tags&filter_tags=kpi_bandwidth&username=agriffin&password=M9y%23asABUx9svvs&sortby=device')
+    '''
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
             f'&username={username}&password={password}&sortby=device'
             )
+    '''
     ### If 200 OK HTTP response is not seen, raise error and print cause to terminal
     if response.status_code == 200:
         response_tree = json.loads(response.text)
@@ -205,7 +204,7 @@ def get_kpi_sensor_ids(username, password):
         else:
             return response_tree.get('sensors')
     else:
-        print("Error making API call to nanm.bluerim.net (PRTG)")
+        print("Error making API call to nanm.smartaira.net (PRTG)")
         print("HTTP response 200: OK was not received")
         print("Received response code: "+str(response.status_code))
         quit()
@@ -263,20 +262,7 @@ def extract_tags(sensor):
 
 #     summary table on top and ensure that nothing is overwritten/deleted]
 #############
-def xlsx_joiner(output_file_TMP,complete_file):
-    complete_array = []
-    complete_array.clear()
-    with open(CWD+str(output_file_TMP)) as temporaryFile:
-        temporaryFileLines = temporaryFile.readlines()
 
-        for line in temporaryFileLines:
-            complete_array.append(line)
-####################################################################
-    xlsxWriteOut(complete_array, complete_file, 'a')
-####################################################################
-    finished_CSV = str(complete_file)
-    XLoutput_RAW = str(defineXLSXPath_RAW(cliargs))
-    convertToXLSX(finished_CSV,XLoutput_RAW)
             
 
 ### [Beginning initial PRTG API call and assigning data to "sensors" var for manipulation]
@@ -285,20 +271,19 @@ sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
 
 ### [CREATION OF COMPLETE FILE (CURRENLT JUST THE SUMMARY)]
 #############
-def summary_out(complete_file):
-    xlsxWriteOut(['Core Utilization Summary',''], complete_file, 'a')
-    xlsxWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization',''], complete_file, 'a')
+def summary_out():
     segments = set()
     for data in summary_data:
         # Create set from all the segment values (creates a unique list)
         segments.add(data.get('segment'))
 
-    segment_bandwidth_total = 0.0000001
-    segment_capacity_total = 0.0000001
+    segment_bandwidth_total = (1*10^(-25))
+    segment_capacity_total = (1*10^(-25))
 
+    i = 0
     for segment in segments:
-        segment_bandwidth = 0.0000001
-        segment_limit = 0.0000001
+        segment_bandwidth = (1*10^(-25))
+        segment_limit = (1*10^(-25))
         for data in summary_data:
             if data['segment'] == segment:
                 segment_bandwidth += int(data['bandwidth'])
@@ -306,13 +291,18 @@ def summary_out(complete_file):
         saturation = segment_bandwidth / segment_limit
         segment_bandwidth_total += segment_bandwidth
         segment_capacity_total += segment_limit
-        xlsxWriteOut([segment, segment_bandwidth, segment_limit, saturation], complete_file, 'a')
+        segment_saturation = segment_bandwidth_total / segment_capacity_total
 
-    segment_saturation = segment_bandwidth_total / segment_capacity_total
+        summary_df['Core'][i].append(segment)
+        summary_df['Bandwidth'][i].append(segment_bandwidth)
+        summary_df['MaxCapacity'][i].append(segment_limit)
+        summary_df['Utilization'][i].append(saturation)
 
-    ### [WRITING SUMMARY DATA TO COMPLETE FILE]
-    #############
-    xlsxWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation,''], complete_file, 'a')
+        summary_df['Core'][i].append('Total')
+        summary_df['Bandwidth'][i].append(segment_bandwidth_total)
+        summary_df['MaxCapacity'][i].append(segment_bandwidth_total)
+        summary_df['Utilization'][i].append(segment_saturation)        
+
 
 
 def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,sensor,i_index):
@@ -338,7 +328,7 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             if properties.get('kpi_chokelimit'):
                 secondary_df['kpi_chokelimit'][i_index].append(properties['kpi_chokelimit'])
             else:
-                secondary_df['kpi_chokelimit'][i_index]..append('NA')
+                secondary_df['kpi_chokelimit'][i_index].append('NA')
 
 
             ### [dec] - [MAX TRAFFIC (Mb/s)]
@@ -373,7 +363,7 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             out_array_w_extras = out_array_get_extra
              
         else:
-            print("Error making API call to nanm.bluerim.net (PRTG)")
+            print("Error making API call to nanm.smartaira.net (PRTG)")
             print("HTTP response 200: OK was not received")
             print("Received response code: "+str(response.status_code))
             exit(1)
@@ -381,9 +371,8 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
         return out_array_w_extras
 
 def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall):
-    i = 0
+    i = 5
     for sensor in sensorsMainCall:
-        i += 1
         response = requests.get(
                 f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
                 f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
@@ -474,10 +463,11 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
 
             out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,sensor,i)
 
+            i += 1
             ### [io] - [Writing newly modified array data to 'output_file_TMP' file.]
             #############
         else:
-            print("Error making API call to nanm.bluerim.net (PRTG)")
+            print("Error making API call to nanm.smartaira.net (PRTG)")
             print("HTTP response 200: OK was not received")
             print("Received response code: "+str(response.status_code))
             exit(1)
@@ -504,7 +494,6 @@ sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TM
 #   create two documents, one stores the normal device data temporarily. Once the workload is done the table is generated as normal, but is placed into a new document
 #   so it is at the top. All TMP data is then filed in below the table.]
 #############
-xlsx_joiner(output_file_TMP,complete_file)
 
 
 
