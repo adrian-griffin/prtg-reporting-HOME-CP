@@ -13,7 +13,10 @@ import math
 import numpy
 import getpass
 import json
+
 import csv
+import xlsxwriter
+
 import datetime
 import argparse
 import openpyxl as opyxl
@@ -110,7 +113,7 @@ def cliArgumentParser():
 ### [User credential prompts and opts]
 #############
 PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
-PRTG_HOSTNAME = 'nanm.bluerim.net'   ###!! Static, domain/URL to PRTG server
+PRTG_HOSTNAME = 'nanm.smartaira.net'   ###!! Static, domain/URL to PRTG server
 #PRTG_PASSWORD = getpass.getpass('Password: ')
 
 
@@ -128,35 +131,8 @@ default_start,default_end = timeWindowFrames(0)
 ### [Timeframes/Windows For Pulling Historical Data from PRTG]
 #############
 current_sys_datetime = datetime.datetime.now()
-
-
-def defineTMPFilePath(cliargs):
-    output_file_TMP = 'output_file_temporary_SPRG.csv'
-    return output_file_TMP
-
-### [Clearing/flushing TMP file. TMP is expected to be deleted after a successful execution, but
-#       if the program halts or crashes part way through, the previous data will still exist on the TMP file.]
-#############
-def flushTMPFileData(cliargs,CWD):
-    tmp_path_TMPVAR = defineTMPFilePath(cliargs)
-    try:
-        os.remove(str(CWD)+str(tmp_path_TMPVAR))
-    except:
-        pass
-        '''##! Yes, I'm passing an exception, but only because the only way an exception could be raised here
-            is if the file it is trying to delete does not exist, in which case we can just move on'''
-
-flushTMPFileData(cliargs, CWD)
-
 ### [Defining path to Complete/Summary file]
-#############
-def defineCOMPFilePath(cliargs):
-    complete_file = f'PRTG_REPORT_{cliargs.start}--{cliargs.end}.csv'
-    return complete_file
-
-def defineXLSXPath_RAW(cliargs):
-    xlsxFile_RAW = f'PRTG_REPORT_{cliargs.start}--{cliargs.end}.xlsx'
-    return xlsxFile_RAW
+############
 
 
 ####################################################################################################
@@ -164,6 +140,40 @@ def defineXLSXPath_RAW(cliargs):
 '''-------------------------------------------- MAIN --------------------------------------------'''
 '''----------------------------------------------------------------------------------------------'''
 ####################################################################################################
+
+global primary_df
+global secondary_df
+primary_df = pd.DataFrame(
+   {'Location':["","","","","",],
+    'MaxTraffic':["","","","","",],
+    'ChokePoint':["","","","","",],
+    'ChokePointLimit':["","","","","",],        
+    'CircuitMaxLimit':["","","","","",],        
+    'CircuitUtilization':["","","","","",],        
+    'ChokePointUtilization0':["","","","","",],        
+    'ChokePointUtilization1':["","","","","",],        
+    'ChokePointUtilization2':["","","","","",],        
+    'ChokePointUtilization3':["","","","","",],          
+    'MaxPlanUsage':["","","","","",],            
+    'Notes':["","","","","",],    
+    'Action':["","","","","",]})
+
+secondary_df = pd.DataFrame(
+   {'Location':["","","","","",],
+    'MaxTraffic':["","","","","",],
+    'ChokePoint':["","","","","",],
+    'ChokePointLimit':["","","","","",],        
+    'CircuitMaxLimit':["","","","","",],        
+    'CircuitUtilization':["","","","","",],        
+    'ChokePointUtilization0':["","","","","",],        
+    'ChokePointUtilization1':["","","","","",],        
+    'ChokePointUtilization2':["","","","","",],        
+    'ChokePointUtilization3':["","","","","",],          
+    'MaxPlanUsage':["","","","","",],            
+    'Notes':["","","","","",],    
+    'Action':["","","","","",]})
+
+
 
 
 ### [Query/Call PRTG API]
@@ -200,16 +210,6 @@ def get_kpi_sensor_ids(username, password):
         print("Received response code: "+str(response.status_code))
         quit()
 
-def csvWriteOut(row, outfile, mode):
-    """ Output to the smaller Summary.csv file to be joined with 
-        main file after completion.
-
-        Ensures that the Summary portion remains on top without 
-        deleting/overwriting any other data on the primary sheet
-    """
-    with open(outfile, mode, newline='') as csvfile:
-        csvout = csv.writer(csvfile)
-        csvout.writerow(row)
 
 ### [Converts all speed values to Mb/s]
 #############
@@ -261,16 +261,9 @@ def extract_tags(sensor):
 
 
 
-def convertToXLSX(csvFilePath,xlsxFilePath):
-    import pandas as pd
-    csvFileOpen = pd.read_csv(r''+str(csvFilePath))
-    csvFileOpen.to_excel(r''+str(xlsxFilePath), index = None, header=True)
-
-
-### [Writes each line of temp file into complete file in order to keep
 #     summary table on top and ensure that nothing is overwritten/deleted]
 #############
-def csv_joiner(output_file_TMP,complete_file):
+def xlsx_joiner(output_file_TMP,complete_file):
     complete_array = []
     complete_array.clear()
     with open(CWD+str(output_file_TMP)) as temporaryFile:
@@ -278,26 +271,13 @@ def csv_joiner(output_file_TMP,complete_file):
 
         for line in temporaryFileLines:
             complete_array.append(line)
-    csvWriteOut(complete_array, complete_file, 'a')
-    os.remove(str(CWD)+str(output_file_TMP))
-
+####################################################################
+    xlsxWriteOut(complete_array, complete_file, 'a')
+####################################################################
     finished_CSV = str(complete_file)
     XLoutput_RAW = str(defineXLSXPath_RAW(cliargs))
     convertToXLSX(finished_CSV,XLoutput_RAW)
             
-### [Defining headers to be inserted into CSV/XLSX file]
-#############
-def create_headers(complete_file):
-    headers = ['Location', f'Max Traffic (Mb/s) ({int(cliargs.percentile)}%)',
-            'Choke Point', 'Choke Point Limit (Mb/s)', 'Circuit Max Limit (Mb/s)', 'Circuit Utilization (%)',
-            'Choke Point Utilization (%) T[0,-14]d','Choke Point Utilization (%) T[-7,-21]d',
-            'Choke Point Utilization (%) T[-14,-28]d','Choke Point Utilization (%) T[-21,-35]d',
-            'Max Usage Plan','Notes','Action']
-    csvWriteOut(headers, complete_file, 'w')
-    if cliargs.debug:
-        headers.insert(1, 'Device id')
-        headers.insert(1, 'Device')
-
 
 ### [Beginning initial PRTG API call and assigning data to "sensors" var for manipulation]
 #############
@@ -306,8 +286,8 @@ sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
 ### [CREATION OF COMPLETE FILE (CURRENLT JUST THE SUMMARY)]
 #############
 def summary_out(complete_file):
-    csvWriteOut(['Core Utilization Summary',''], complete_file, 'a')
-    csvWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization',''], complete_file, 'a')
+    xlsxWriteOut(['Core Utilization Summary',''], complete_file, 'a')
+    xlsxWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization',''], complete_file, 'a')
     segments = set()
     for data in summary_data:
         # Create set from all the segment values (creates a unique list)
@@ -326,19 +306,18 @@ def summary_out(complete_file):
         saturation = segment_bandwidth / segment_limit
         segment_bandwidth_total += segment_bandwidth
         segment_capacity_total += segment_limit
-        csvWriteOut([segment, segment_bandwidth, segment_limit, saturation], complete_file, 'a')
+        xlsxWriteOut([segment, segment_bandwidth, segment_limit, saturation], complete_file, 'a')
 
     segment_saturation = segment_bandwidth_total / segment_capacity_total
 
     ### [WRITING SUMMARY DATA TO COMPLETE FILE]
     #############
-    csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation,''], complete_file, 'a')
+    xlsxWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation,''], complete_file, 'a')
 
 
-def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_pre_extra,sensor,complete_file):
-    out_array_get_extra = out_array_pre_extra
-    for i in range(1,3):
-        Tstart,Tend = timeWindowFrames(i)
+def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,sensor,i_index):
+    for k in range(1,3):
+        Tstart,Tend = timeWindowFrames(k)
         response = requests.get(
                     f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
                     f'&avg={cliargs.avgint}&sdate={Tstart}-00-00&edate={Tend}-23-59'
@@ -357,9 +336,9 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
             #############
             if properties.get('kpi_chokelimit'):
-                out_array_get_extra.append(properties['kpi_chokelimit'])
+                secondary_df['kpi_chokelimit'][i_index].append(properties['kpi_chokelimit'])
             else:
-                out_array_get_extra.append('NA')
+                secondary_df['kpi_chokelimit'][i_index]..append('NA')
 
 
             ### [dec] - [MAX TRAFFIC (Mb/s)]
@@ -367,16 +346,16 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             max_traffic = 0
             if properties.get('kpi_trafficdirection') == 'up':
                 if traffic_out == []:
-                    out_array_get_extra.append("NA")
+                    primary_df['MaxTraffic'][i_index].append("NA")
                 else:
                     max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                    out_array_get_extra.append(max_traffic)
+                    primary_df['MaxTraffic'][i_index].append(max_traffic)
             else:
                 if traffic_in == []:
-                    out_array_get_extra.append("NA")
+                    primary_df['MaxTraffic'][i_index].append("NA")
                 else:
                     max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                    out_array_get_extra.append(max_traffic)
+                    primary_df['MaxTraffic'][i_index].append(max_traffic)
 
             if "Core" in properties.get('kpi_seg'):
                 summary_data.append({'segment': properties.get('kpi_seg'),
@@ -401,14 +380,10 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
 
         return out_array_w_extras
 
-
-
-    ### [Calling and iterating through sensors data from PRTG]
-    ### [Assigning incoming data to 'properties','traffic_IO',and 'device_name']
-    ### [Selecting values to be written on each row for respective headers]
-    #############
 def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall):
+    i = 0
     for sensor in sensorsMainCall:
+        i += 1
         response = requests.get(
                 f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
                 f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
@@ -422,37 +397,37 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
             traffic_in = normalize_traffic(data, 'Traffic In (speed)')
             traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
             device_name = sensor['device'].split(' (')[0]
-            out_array = []
+            
 
             ### [dec] - [LOCATION (Location)]
             #############
             if properties.get('kpi_siteid'):
-                out_array.append(re.sub("#", " ", properties['kpi_siteid']))
+                primary_df['Location'][i].append(re.sub("#", " ", properties['kpi_siteid']))
             else:
-                out_array.append('NA')
+                primary_df['Location'][i].append('NA')
 
             if cliargs.debug:
                 # Device name (debug)
-                out_array.append(device_name)
+                primary_df['Location'][i].append(device_name)
 
                 # Device id (debug)
-                out_array.append(sensor['objid'])
+                primary_df['Location'][i].append(sensor['objid'])
 
             ### [dec] - [MAX TRAFFIC (Mb/s)]
             #############
             max_traffic = 0
             if properties.get('kpi_trafficdirection') == 'up':
                 if traffic_out == []:
-                    out_array.append("NA")
+                    primary_df['MaxTraffic'][i].append("NA")
                 else:
                     max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                    out_array.append(max_traffic)
+                    primary_df['MaxTraffic'][i].append(max_traffic)
             else:
                 if traffic_in == []:
-                    out_array.append("NA")
+                     primary_df['MaxTraffic'][i].append("NA")
                 else:
                     max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                    out_array.append(max_traffic)
+                    primary_df['MaxTraffic'][i].append(max_traffic)
 
             if "Core" in properties.get('kpi_seg'):
                 summary_data.append({'segment': properties.get('kpi_seg'),
@@ -462,48 +437,45 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
             ### [dec] - [CHOKE POINT (Device)]
             #############
             if properties.get('kpi_choke'):
-                out_array.append(properties['kpi_choke'])
+                secondary_df['kpi_choke'][i].append(properties['kpi_choke'])
             else:
-                out_array.append('NA')
+                secondary_df['kpi_choke'][i].append('NA')
 
             ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
             #############
             if properties.get('kpi_chokelimit'):
-                out_array.append(properties['kpi_chokelimit'])
+                secondary_df['kpi_chokelimit'][i].append(properties['kpi_chokelimit'])
             else:
-                out_array.append('NA')
+                secondary_df['kpi_chokelimit'][i].append('NA')
             
 
 
             ### [dec] - [CIRCUIT MAX LIMIT (Mb/s)]
             #############
             if properties.get('kpi_cktmaxlimit'):
-                out_array.append(properties['kpi_cktmaxlimit'])
+                secondary_df['kpi_cktmaxlimit'][i].append(properties['kpi_cktmaxlimit'])
             else:
-                out_array.append('NA')
+                secondary_df['kpi_cktmaxlimit'][i].append('NA')
 
             ### [dec] - [CIRCUIT UTILIZATION (%)]
             #############
             if properties.get('kpi_cktmaxlimit'):
-                out_array.append(max_traffic / int(properties['kpi_cktmaxlimit']))
+                secondary_df['kpi_cktmaxlimit'][i].append(max_traffic / int(properties['kpi_cktmaxlimit']))
             else:
-                out_array.append('NA')
+                secondary_df['kpi_cktmaxlimit'][i].append('NA')
 
 
             ### [dec] - [CHOKE POINT UTILIZATION (%)]
             #############
             if properties.get('kpi_chokelimit'):
-                out_array.append(max_traffic / int(properties['kpi_chokelimit']))
+                secondary_df['kpi_chokelimit'][i].append(max_traffic / int(properties['kpi_chokelimit']))
             else:
-                out_array.append('NA')
+                secondary_df['kpi_chokelimit'][i].append('NA')         
 
-            out_array_extra = out_array.copy()            
-
-            out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_extra,sensor,complete_file)
+            out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,sensor,i)
 
             ### [io] - [Writing newly modified array data to 'output_file_TMP' file.]
             #############
-            csvWriteOut(out_array_w_extras, output_file_TMP, 'a')
         else:
             print("Error making API call to nanm.bluerim.net (PRTG)")
             print("HTTP response 200: OK was not received")
@@ -511,17 +483,6 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
             exit(1)
 
 
- 
-### [Calling temp & complete filepaths, assigning to vars]
-#############
-output_file_TMP = defineTMPFilePath(cliargs) #   Sensor & Device data is iterated into this file temporarily to allow Header and Summary Table 
-                                            #  creation after the primary data collection is done.
-                                            #  All temp data is then moved into the Complete output file cleanly.
-complete_file = defineCOMPFilePath(cliargs)
-
-### [Writing headers into summary/complete file to be followed by the Summary Table itself]
-#############
-create_headers(complete_file)
 
 ### [Array to be used for piping TMP file lines into final file]
 #############
@@ -534,9 +495,6 @@ summary_data.clear() # Flushing array values just in case -- I dont feel like ex
 sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall)
 
 ### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
-#############
-summary_out(complete_file)   
-
 
 
 
@@ -546,7 +504,7 @@ summary_out(complete_file)
 #   create two documents, one stores the normal device data temporarily. Once the workload is done the table is generated as normal, but is placed into a new document
 #   so it is at the top. All TMP data is then filed in below the table.]
 #############
-csv_joiner(output_file_TMP,complete_file)
+xlsx_joiner(output_file_TMP,complete_file)
 
 
 
