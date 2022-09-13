@@ -71,9 +71,9 @@ def timeWindowFrames(timeFrameIDRAW):
         return def_s,def_e
     elif timeFrameID == "1":
         return win1_s,win1_e
-    elif timeFrameID == "1":
+    elif timeFrameID == "2":
         return win2_s,win2_e
-    elif timeFrameID == "1":
+    elif timeFrameID == "3":
         return win3_s,win3_e
     else: 
         print("Error: timeWindowFrames -- Invalid arguments passed")
@@ -158,7 +158,21 @@ def defineXLSXPath_RAW(cliargs):
     xlsxFile_RAW = f'PRTG_REPORT_{cliargs.start}--{cliargs.end}.xslx'
     return xlsxFile_RAW
 
+### [Array to be used for piping TMP file lines into final file]
+#############
+summary_data = []
+summary_data.clear() # Flushing array values just in case -- I dont feel like exception handling and this is easier
 
+
+### [Calling temp & complete filepaths, assigning to vars]
+#############
+output_file_TMP = defineTMPFilePath(cliargs) #   Sensor & Device data is iterated into this file temporarily to allow Header and Summary Table 
+                                            #  creation after the primary data collection is done.
+                                            #  All temp data is then moved into the Complete output file cleanly.
+complete_file = defineCOMPFilePath(cliargs)
+
+
+xlsxFile_PathRAW = defineXLSXPath_RAW(cliargs)
 ####################################################################################################
 '''----------------------------------------------------------------------------------------------'''
 '''-------------------------------------------- MAIN --------------------------------------------'''
@@ -262,7 +276,7 @@ def extract_tags(sensor):
 ### [Writes each line of temp file into complete file in order to keep
 #     summary table on top and ensure that nothing is overwritten/deleted]
 #############
-def csv_joiner(output_file_TMP,complete_file):
+def csv_joiner(output_file_TMP,complete_file,xlsxFile_PathRAW):
     complete_array = []
     complete_array.clear()
     with open(CWD+str(output_file_TMP)) as temporaryFile:
@@ -276,7 +290,7 @@ def csv_joiner(output_file_TMP,complete_file):
     time.sleep(3)
 
     finished_CSV = str(CWD)+str(complete_file)
-    output_RAW = defineXLSXPath(cliargs) 
+    output_RAW = xlsxFile_PathRAW
     convertToXLSX(finished_CSV,output_RAW)
             
 ### [Defining headers to be inserted into CSV/XLSX file]
@@ -297,112 +311,7 @@ def create_headers(complete_file):
 #############
 sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
 
-### [CREATION OF COMPLETE FILE (CURRENLT JUST THE SUMMARY)]
-#############
-def summary_out(complete_file):
-    csvWriteOut(['Core Utilization Summary'], complete_file, 'a')
-    csvWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization'], complete_file, 'a')
-    segments = set()
-    for data in summary_data:
-        # Create set from all the segment values (creates a unique list)
-        segments.add(data.get('segment'))
 
-    segment_bandwidth_total = 0
-    segment_capacity_total = 0
-
-    for segment in segments:
-        segment_bandwidth = 0
-        segment_limit = 0
-        for data in summary_data:
-            if data['segment'] == segment:
-                segment_bandwidth += int(data['bandwidth'])
-                segment_limit += int(data['limit'])
-        saturation = segment_bandwidth / segment_limit
-        segment_bandwidth_total += segment_bandwidth
-        segment_capacity_total += segment_limit
-        csvWriteOut([segment, segment_bandwidth, segment_limit, saturation], complete_file, 'a')
-
-    segment_saturation = segment_bandwidth_total / segment_capacity_total
-
-    ### [WRITING SUMMARY DATA TO COMPLETE FILE]
-    #############
-    csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation], complete_file, 'a')
-
-
-def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_pre_extra,sensor):
-    complete_file = defineCOMPFilePath(cliargs)
-    out_array_get_extra = out_array_pre_extra
-    for i in range(1,3):
-        Tstart,Tend = timeWindowFrames(i)
-        response = requests.get(
-                    f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-                    f'&avg={cliargs.avgint}&sdate={Tstart}-00-00&edate={Tend}-23-59'
-                    f'&usecaption=1'
-                    f'&username={cliargs.username}&password={PRTG_PASSWORD}'
-                    )
-        if response.status_code == 200:
-            data = json.loads(response.text)
-            properties = extract_tags(sensor)
-            traffic_in = normalize_traffic(data, 'Traffic In (speed)')
-            traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
-            device_name = sensor['device'].split(' (')[0]
-
-
-
-            ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
-            #############
-            if properties.get('kpi_chokelimit'):
-                out_array_get_extra.append(properties['kpi_chokelimit'])
-            else:
-                out_array_get_extra.append('NA')
-
-
-            ### [dec] - [MAX TRAFFIC (Mb/s)]
-            #############
-            max_traffic = 0
-            if properties.get('kpi_trafficdirection') == 'up':
-                if traffic_out == []:
-                    out_array_get_extra.append("NA")
-                else:
-                    max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                    out_array_get_extra.append(max_traffic)
-            else:
-                if traffic_in == []:
-                    out_array_get_extra.append("NA")
-                else:
-                    max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                    out_array_get_extra.append(max_traffic)
-
-            if "Core" in properties.get('kpi_seg'):
-                summary_data.append({'segment': properties.get('kpi_seg'),
-                                    'bandwidth': max_traffic,
-                                    'limit': properties.get('kpi_cktmaxlimit')})
-        
-
-            ### [dec] - [CHOKE POINT UTILIZATION (%)]
-            #############
-            if properties.get('kpi_chokelimit'):
-                out_array_get_extra.append(max_traffic / int(properties['kpi_chokelimit']))
-            else:
-                out_array_get_extra.append('NA')
-            
-            out_array_w_extras = out_array_get_extra
-             
-        else:
-            print("Error making API call to nanm.bluerim.net (PRTG)")
-            print("HTTP response 200: OK was not received")
-            print("Received response code: "+str(response.status_code))
-            exit(1)
-        
-        ### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
-        #############
-        summary_out(complete_file)
-
-        return out_array_w_extras
-    ### [Calling and iterating through sensors data from PRTG]
-    ### [Assigning incoming data to 'properties','traffic_IO',and 'device_name']
-    ### [Selecting values to be written on each row for respective headers]
-    #############
 def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall):
     for sensor in sensorsMainCall:
         response = requests.get(
@@ -507,23 +416,111 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
             exit(1)
 
 
+def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_pre_extra,sensor):
+    complete_file = defineCOMPFilePath(cliargs)
+    out_array_get_extra = out_array_pre_extra
+    for i in range(1,3):
+        Tstart,Tend = timeWindowFrames(i)
+        response = requests.get(
+                    f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
+                    f'&avg={cliargs.avgint}&sdate={Tstart}-00-00&edate={Tend}-23-59'
+                    f'&usecaption=1'
+                    f'&username={cliargs.username}&password={PRTG_PASSWORD}'
+                    )
+        if response.status_code == 200:
+            data = json.loads(response.text)
+            properties = extract_tags(sensor)
+            traffic_in = normalize_traffic(data, 'Traffic In (speed)')
+            traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
+            device_name = sensor['device'].split(' (')[0]
 
 
 
+            ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
+            #############
+            if properties.get('kpi_chokelimit'):
+                out_array_get_extra.append(properties['kpi_chokelimit'])
+            else:
+                out_array_get_extra.append('NA')
 
 
-### [Array to be used for piping TMP file lines into final file]
+            ### [dec] - [MAX TRAFFIC (Mb/s)]
+            #############
+            max_traffic = 0
+            if properties.get('kpi_trafficdirection') == 'up':
+                if traffic_out == []:
+                    out_array_get_extra.append("NA")
+                else:
+                    max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
+                    out_array_get_extra.append(max_traffic)
+            else:
+                if traffic_in == []:
+                    out_array_get_extra.append("NA")
+                else:
+                    max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
+                    out_array_get_extra.append(max_traffic)
+
+            if "Core" in properties.get('kpi_seg'):
+                summary_data.append({'segment': properties.get('kpi_seg'),
+                                    'bandwidth': max_traffic,
+                                    'limit': properties.get('kpi_cktmaxlimit')})
+        
+
+            ### [dec] - [CHOKE POINT UTILIZATION (%)]
+            #############
+            if properties.get('kpi_chokelimit'):
+                out_array_get_extra.append(max_traffic / int(properties['kpi_chokelimit']))
+            else:
+                out_array_get_extra.append('NA')
+             
+        else:
+            print("Error making API call to nanm.bluerim.net (PRTG)")
+            print("HTTP response 200: OK was not received")
+            print("Received response code: "+str(response.status_code))
+            exit(1)
+        
+        ### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
+        #############
+        summary_out(complete_file,summary_data)
+
+        return(out_array_get_extra)
+    ### [Calling and iterating through sensors data from PRTG]
+    ### [Assigning incoming data to 'properties','traffic_IO',and 'device_name']
+    ### [Selecting values to be written on each row for respective headers]
+    #############
+
+
+### [CREATION OF COMPLETE FILE (CURRENLT JUST THE SUMMARY)]
 #############
-summary_data = []
-summary_data.clear() # Flushing array values just in case -- I dont feel like exception handling and this is easier
+def summary_out(complete_file,summary_data):
+    csvWriteOut(['Core Utilization Summary'], complete_file, 'a')
+    csvWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization'], complete_file, 'a')
+    segments = set()
+    for data in summary_data:
+        # Create set from all the segment values (creates a unique list)
+        segments.add(data.get('segment'))
 
+    segment_bandwidth_total = 0
+    segment_capacity_total = 0
 
-### [Calling temp & complete filepaths, assigning to vars]
-#############
-output_file_TMP = defineTMPFilePath(cliargs) #   Sensor & Device data is iterated into this file temporarily to allow Header and Summary Table 
-                                            #  creation after the primary data collection is done.
-                                            #  All temp data is then moved into the Complete output file cleanly.
-complete_file = defineCOMPFilePath(cliargs)
+    for segment in segments:
+        segment_bandwidth = 0
+        segment_limit = 0
+        for data in summary_data:
+            if data['segment'] == segment:
+                segment_bandwidth += int(data['bandwidth'])
+                segment_limit += int(data['limit'])
+        saturation = segment_bandwidth / segment_limit
+        segment_bandwidth_total += segment_bandwidth
+        segment_capacity_total += segment_limit
+        csvWriteOut([segment, segment_bandwidth, segment_limit, saturation], complete_file, 'a')
+
+        segment_saturation = segment_bandwidth_total / segment_capacity_total
+
+    ### [WRITING SUMMARY DATA TO COMPLETE FILE]
+    #############
+    csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation], complete_file, 'a')
+
 
 ### [Writing headers into summary/complete file to be followed by the Summary Table itself]
 #############
