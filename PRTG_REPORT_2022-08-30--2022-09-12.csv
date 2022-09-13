@@ -1,3 +1,139 @@
 Location,Max Traffic (Mb/s) (99%),Choke Point,Choke Point Limit (Mb/s),Circuit Max Limit (Mb/s),Circuit Utilization (%),"Choke Point Utilization (%) T[0,-14]d","Choke Point Utilization (%) T[-7,-21]d","Choke Point Utilization (%) T[-14,-28]d","Choke Point Utilization (%) T[-21,-35]d",Max Usage Plan,Notes,Action
 Core Utilization Summary
 Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+Total:,1e-07,1e-07,1.0
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647
+Core Utilization Summary
+Core,Bandwidth,Max Capacity,Utilization
+CoreAZ,3947.0000001,20000.0000001,0.19735000000401323
+Total:,3947.0000001999997,20000.0000002,0.19735000000802647

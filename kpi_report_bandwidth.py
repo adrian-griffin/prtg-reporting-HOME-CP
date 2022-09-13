@@ -307,12 +307,12 @@ def summary_out(complete_file):
         # Create set from all the segment values (creates a unique list)
         segments.add(data.get('segment'))
 
-    segment_bandwidth_total = 0
-    segment_capacity_total = 0
+    segment_bandwidth_total = 0.0000001
+    segment_capacity_total = 0.0000001
 
     for segment in segments:
-        segment_bandwidth = 0
-        segment_limit = 0
+        segment_bandwidth = 0.0000001
+        segment_limit = 0.0000001
         for data in summary_data:
             if data['segment'] == segment:
                 segment_bandwidth += int(data['bandwidth'])
@@ -329,8 +329,7 @@ def summary_out(complete_file):
     csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation], complete_file, 'a')
 
 
-def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_pre_extra,sensor):
-    complete_file = defineCOMPFilePath(cliargs)
+def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_pre_extra,sensor,complete_file):
     out_array_get_extra = out_array_pre_extra
     for i in range(1,3):
         Tstart,Tend = timeWindowFrames(i)
@@ -495,7 +494,7 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
 
             out_array_extra = out_array.copy()            
 
-            out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_extra,sensor)
+            out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_extra,sensor,complete_file)
 
             ### [io] - [Writing newly modified array data to 'output_file_TMP' file.]
             #############
