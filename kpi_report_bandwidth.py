@@ -71,9 +71,9 @@ def timeWindowFrames(timeFrameIDRAW):
         return def_s,def_e
     elif timeFrameID == "1":
         return win1_s,win1_e
-    elif timeFrameID == "1":
+    elif timeFrameID == "2":
         return win2_s,win2_e
-    elif timeFrameID == "1":
+    elif timeFrameID == "3":
         return win3_s,win3_e
     else: 
         print("Error: timeWindowFrames -- Invalid arguments passed")
@@ -155,7 +155,7 @@ def defineCOMPFilePath(cliargs):
     return complete_file
 
 def defineXLSXPath_RAW(cliargs):
-    xlsxFile_RAW = f'PRTG_REPORT_{cliargs.start}--{cliargs.end}.xslx'
+    xlsxFile_RAW = f'PRTG_REPORT_{cliargs.start}--{cliargs.end}.xlsx'
     return xlsxFile_RAW
 
 
@@ -259,6 +259,14 @@ def extract_tags(sensor):
 
     return device_properties
 
+
+
+def convertToXLSX(csvFilePath,xlsxFilePath):
+    import pandas as pd
+    csvFileOpen = pd.read_csv(r''+str(csvFilePath))
+    csvFileOpen.to_excel(r''+str(xlsxFilePath), index = None, header=True)
+
+
 ### [Writes each line of temp file into complete file in order to keep
 #     summary table on top and ensure that nothing is overwritten/deleted]
 #############
@@ -273,11 +281,9 @@ def csv_joiner(output_file_TMP,complete_file):
     csvWriteOut(complete_array, complete_file, 'a')
     os.remove(str(CWD)+str(output_file_TMP))
 
-    time.sleep(3)
-
-    finished_CSV = str(CWD)+str(complete_file)
-    output_RAW = defineXLSXPath(cliargs) 
-    convertToXLSX(finished_CSV,output_RAW)
+    finished_CSV = str(complete_file)
+    XLoutput_RAW = str(defineXLSXPath_RAW(cliargs))
+    convertToXLSX(finished_CSV,XLoutput_RAW)
             
 ### [Defining headers to be inserted into CSV/XLSX file]
 #############
@@ -300,8 +306,8 @@ sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
 ### [CREATION OF COMPLETE FILE (CURRENLT JUST THE SUMMARY)]
 #############
 def summary_out(complete_file):
-    csvWriteOut(['Core Utilization Summary'], complete_file, 'a')
-    csvWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization'], complete_file, 'a')
+    csvWriteOut(['Core Utilization Summary',''], complete_file, 'a')
+    csvWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization',''], complete_file, 'a')
     segments = set()
     for data in summary_data:
         # Create set from all the segment values (creates a unique list)
@@ -326,7 +332,7 @@ def summary_out(complete_file):
 
     ### [WRITING SUMMARY DATA TO COMPLETE FILE]
     #############
-    csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation], complete_file, 'a')
+    csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation,''], complete_file, 'a')
 
 
 def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,out_array_pre_extra,sensor,complete_file):
@@ -392,12 +398,11 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             print("HTTP response 200: OK was not received")
             print("Received response code: "+str(response.status_code))
             exit(1)
-        
-        ### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
-        #############
-        summary_out(complete_file)
 
         return out_array_w_extras
+
+
+
     ### [Calling and iterating through sensors data from PRTG]
     ### [Assigning incoming data to 'properties','traffic_IO',and 'device_name']
     ### [Selecting values to be written on each row for respective headers]
@@ -506,17 +511,7 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
             exit(1)
 
 
-
-
-
-
-
-### [Array to be used for piping TMP file lines into final file]
-#############
-summary_data = []
-summary_data.clear() # Flushing array values just in case -- I dont feel like exception handling and this is easier
-
-
+ 
 ### [Calling temp & complete filepaths, assigning to vars]
 #############
 output_file_TMP = defineTMPFilePath(cliargs) #   Sensor & Device data is iterated into this file temporarily to allow Header and Summary Table 
@@ -528,9 +523,20 @@ complete_file = defineCOMPFilePath(cliargs)
 #############
 create_headers(complete_file)
 
+### [Array to be used for piping TMP file lines into final file]
+#############
+summary_data = []
+summary_data.clear() # Flushing array values just in case -- I dont feel like exception handling and this is easier
+
+
 ### [PRTG API call and assigning data to "sensors" var]
 #############
 sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall)
+
+### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
+#############
+summary_out(complete_file)   
+
 
 
 
@@ -543,9 +549,7 @@ sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TM
 csv_joiner(output_file_TMP,complete_file)
 
 
-def convertToXLSX(csvFilePath,xlsxFilePath):
-    csvFileOpen = pd.read_csv (r''+str(csvFilePath))
-    csvFileOpen.to_excel (r''+str(xlsxFilePath), index = None, header=True)
+
 
 
 
