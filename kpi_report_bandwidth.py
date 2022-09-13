@@ -1,4 +1,13 @@
-#############
+# ---- PRTG-XLSX-Report-Generator.py
+# -------------------------------------------------------------------------------
+#
+#   Pulls sensor & device data from PRTG and neatly formats it into a .xmlx file
+# using python-openpyxl, json, csv, and pandas
+#
+# -------------------------------------------------------------------------------
+
+
+
 ### [Imports]
 #############
 import requests
@@ -14,6 +23,7 @@ import openpyxl as opyxl
 import pandas as pd
 import os
 import subprocess
+import logging
 
 
 
@@ -29,16 +39,8 @@ def effCalc(FUNCTIONASARG):
     effCheckProf.runcall(FUNCTIONASARG)
     effPS = pstats.Stats(effCheckProf)
     effPS.print_stats()
-######################
 
-
-#############
-### [Defining GLOBAL params for easier use of functions]
-#############
-global cliargs
-
-#############
-### [CLI argument parser]
+### [CLI argument parser; --username is required]
 #############
 def cliArgumentParser():
     parser = argparse.ArgumentParser()
@@ -62,8 +64,42 @@ def cliArgumentParser():
     cliargs = parser.parse_args()
     return cliargs
 
-
+### [Timeframes/Windows For Pulling Historical Data from PRTG]
 #############
+def timeWindowFrames():
+    #############
+    ### [Time window declarations]
+    ### [A positive time in these comments indicates # of days prior to current (DAY 0)]
+    ### [eg: "0d -- 14d" = "From today (0d) through 14 days ago (14d)"]
+    #############
+    current_sys_datetime = datetime.datetime.now()
+    ######    0d -- 14d
+    def_s = current_sys_datetime - datetime.timedelta(days = 14)
+    def_e = current_sys_datetime - datetime.timedelta(days = 1)
+    ######    7d -- 21d
+    win1_s = current_sys_datetime - datetime.timedelta(days = 21)
+    win1_e = current_sys_datetime - datetime.timedelta(days = 7)
+    ######    14d -- 28d
+    win2_s = current_sys_datetime - datetime.timedelta(days = 28)
+    win2_e = current_sys_datetime - datetime.timedelta(days = 14)
+    ######    21d -- 35d
+    win3_s = current_sys_datetime - datetime.timedelta(days = 35)
+    win3_e = current_sys_datetime - datetime.timedelta(days = 21)
+
+    return [def_s,def_e],[win1_s,win1_e],[win2_s,win2_e],[win3_s,win3_e]
+
+### [Defining path to Temporary file]
+#############
+def defineTMPFilePath(cliargs):
+    output_file_TMP = 'output_file_temporary_SPRG.csv'
+    return output_file_TMP
+
+### [Defining path to Complete/Summary file]
+#############
+def defineCOMPFilePath(cliargs):
+    complete_file = f'PRTG_REPORT_{cliargs.start}--{cliargs.end}.csv'
+    return complete_file
+
 ### [Query/Call PRTG API]
 #############
 def get_kpi_sensor_ids(username, password):
@@ -77,6 +113,7 @@ def get_kpi_sensor_ids(username, password):
       'device_raw': 'ACA Edge (160.3.214.2)'},
     """
     ### PRTG API call
+
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
@@ -95,29 +132,9 @@ def get_kpi_sensor_ids(username, password):
         print("Error making API call to nanm.bluerim.net (PRTG)")
         print("HTTP response 200: OK was not received")
         print("Received response code: "+str(response.status_code))
-        exit(1)
+        quit()
 
-#############
-### [Output to temp file (file gets deleted later)]
-#############
-def out_tmp_csv(row, outfile, mode):
-    """ Output to a csv file
-
-    Arguments:
-    row -- list with output for row
-    outfile -- destination output filename
-    mode -- 'w' or 'a' (overwrite or append)
-    """
-    with open(outfile, mode, newline='') as csvfile:
-        csvout = csv.writer(csvfile)
-        csvout.writerow(row)
-
-#############
-### [Output to final/completed file. (Summary table goes here after all data is gathered, 
-#     into temporary file. It is then joined to under the summary table into the completed
-#       file below)]
-#############
-def out_complete_csv(row, outfile, mode):
+def csvWriteOut(row, outfile, mode):
     """ Output to the smaller Summary.csv file to be joined with 
         main file after completion.
 
@@ -128,7 +145,6 @@ def out_complete_csv(row, outfile, mode):
         csvout = csv.writer(csvfile)
         csvout.writerow(row)
 
-#############
 ### [Converts all speed values to Mb/s]
 #############
 def normalize_traffic(data, label):
@@ -142,8 +158,8 @@ def normalize_traffic(data, label):
             traffic_list.append(i[label] * 0.000008)
     return traffic_list
 
-#############
 ### [Extract desired information via tags from PRTG API]
+#   [Delimits incoming PRTG JSON tags to avoid conflictions and exceptions]
 #############
 def extract_tags(sensor):
     """
@@ -177,23 +193,20 @@ def extract_tags(sensor):
 
     return device_properties
 
-#############
 ### [Writes each line of temp file into complete file in order to keep
 #     summary table on toop and ensure that nothing is overwritten/deleted]
 #############
 def csv_joiner(output_file_TMP,complete_file):
     complete_array = []
     complete_array.clear()
-    with open(CWD+"/"+str(output_file_TMP)) as temporaryFile:
+    with open(CWD+str(output_file_TMP)) as temporaryFile:
         temporaryFileLines = temporaryFile.readlines()
 
         for line in temporaryFileLines:
             complete_array.append(line)
-    out_complete_csv(complete_array, complete_file, 'a')
-    os.remove(str(CWD)+"/"+str(output_file_TMP))
+    csvWriteOut(complete_array[line], complete_file, 'a')
+    os.remove(str(CWD)+str(output_file_TMP))
             
-
-#############
 ### [Defining headers to be inserted into CSV/XLSX file]
 #############
 def create_headers(complete_file):
@@ -202,20 +215,116 @@ def create_headers(complete_file):
             'Choke Point Utilization (%) T[0,-14]d','Choke Point Utilization (%) T[-7,-21]d',
             'Choke Point Utilization (%) T[-14,-28]d','Choke Point Utilization (%) T[-21,-35]d',
             'Max Usage Plan','Notes','Action']
-    out_tmp_csv(headers, complete_file, 'w')
+    csvWriteOut(headers, complete_file, 'w')
     if cliargs.debug:
         headers.insert(1, 'Device id')
         headers.insert(1, 'Device')
 
-
-
+### [Calling and iterating through sensors data from PRTG]
+### [Assigning incoming data to 'properties','traffic_IO',and 'device_name']
+### [Selecting values to be written on each row for respective headers]
 #############
+def sensorsHistoricCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall):
+    for sensor in sensorsMainCall:
+        response = requests.get(
+                f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
+                f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
+                f'&usecaption=1'
+                f'&username={cliargs.username}&password={PRTG_PASSWORD}'
+                )
+        if response.status_code == 200:
+
+            data = json.loads(response.text)
+            properties = extract_tags(sensor)
+            traffic_in = normalize_traffic(data, 'Traffic In (speed)')
+            traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
+            device_name = sensor['device'].split(' (')[0]
+            out_array = []
+
+            ### [dec] - [LOCATION (Location)]
+            #############
+            if properties.get('kpi_siteid'):
+                out_array.append(re.sub("#", " ", properties['kpi_siteid']))
+            else:
+                out_array.append('NA')
+
+            if cliargs.debug:
+                # Device name (debug)
+                out_array.append(device_name)
+
+                # Device id (debug)
+                out_array.append(sensor['objid'])
+
+            ### [dec] - [MAX TRAFFIC (Mb/s)]
+            #############
+            max_traffic = 0
+            if properties.get('kpi_trafficdirection') == 'up':
+                if traffic_out == []:
+                    out_array.append("NA")
+                else:
+                    max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
+                    out_array.append(max_traffic)
+            else:
+                if traffic_in == []:
+                    out_array.append("NA")
+                else:
+                    max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
+                    out_array.append(max_traffic)
+
+            if "Core" in properties.get('kpi_seg'):
+                summary_data.append({'segment': properties.get('kpi_seg'),
+                                    'bandwidth': max_traffic,
+                                    'limit': properties.get('kpi_cktmaxlimit')})
+
+            ### [dec] - [CHOKE POINT (Device)]
+            #############
+            if properties.get('kpi_choke'):
+                out_array.append(properties['kpi_choke'])
+            else:
+                out_array.append('NA')
+
+            ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
+            #############
+            if properties.get('kpi_chokelimit'):
+                out_array.append(properties['kpi_chokelimit'])
+            else:
+                out_array.append('NA')
+
+            ### [dec] - [CIRCUIT MAX LIMIT (Mb/s)]
+            #############
+            if properties.get('kpi_cktmaxlimit'):
+                out_array.append(properties['kpi_cktmaxlimit'])
+            else:
+                out_array.append('NA')
+
+            ### [dec] - [CHOKE POINT UTILIZATION (%)]
+            #############
+            if properties.get('kpi_chokelimit'):
+                out_array.append(max_traffic / int(properties['kpi_chokelimit']))
+            else:
+                out_array.append('NA')
+
+            ### [dec] - [CIRCUIT UTILIZATION (%)]
+            #############
+            if properties.get('kpi_cktmaxlimit'):
+                out_array.append(max_traffic / int(properties['kpi_cktmaxlimit']))
+            else:
+                out_array.append('NA')
+
+            ### [io] - [Writing newly modified array data to 'output_file_TMP' file.]
+            #############
+            csvWriteOut(out_array, output_file_TMP, 'a')
+        else:
+            print("Error making API call to nanm.bluerim.net (PRTG)")
+            print("HTTP response 200: OK was not received")
+            print("Received response code: "+str(response.status_code))
+            exit(1)
+
 ### [CREATION OF COMPLETE FILE (CURRENLT JUST THE SUMMARY)]
 #############
-def summary_out(output_file_TMP,complete_file):
-    #out_tmp_csv([], output_file_TMP, 'a')
-    out_complete_csv(['Core Utilization Summary'], complete_file, 'a')
-    out_complete_csv(['Core', 'Bandwidth', 'Max Capacity', 'Utilization'], complete_file, 'a')
+def summary_out(complete_file):
+    csvWriteOut(['Core Utilization Summary'], complete_file, 'a')
+    csvWriteOut(['Core', 'Bandwidth', 'Max Capacity', 'Utilization'], complete_file, 'a')
     segments = set()
     for data in summary_data:
         # Create set from all the segment values (creates a unique list)
@@ -234,205 +343,95 @@ def summary_out(output_file_TMP,complete_file):
         saturation = segment_bandwidth / segment_limit
         segment_bandwidth_total += segment_bandwidth
         segment_capacity_total += segment_limit
-        out_complete_csv([segment, segment_bandwidth, segment_limit, saturation,], complete_file, 'a')
+        csvWriteOut([segment, segment_bandwidth, segment_limit, saturation], complete_file, 'a')
 
     segment_saturation = segment_bandwidth_total / segment_capacity_total
 
     #############
     ### [WRITING SUMMARY DATA TO COMPLETE FILE]
     #############
-    out_complete_csv(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation], complete_file, 'a')
+    csvWriteOut(['Total:', segment_bandwidth_total, segment_capacity_total, segment_saturation], complete_file, 'a')
 
-    #############
-    ### [JOINING ALL DATA FROM TEMP INTO COMPLETE FILE (APPENDING @ BOTTOM)]
-    #############
-    csv_joiner(output_file_TMP,complete_file)
-
-'''
-####################################### MAIN #######################################
-#----------------------------------------------------------------------------------#
-####################################################################################
-'''
+'''-------------------------------------------- MAIN --------------------------------------------'''
 
 
 
-
+### [Timeframes/Windows For Pulling Historical Data from PRTG]
 #############
-### [User credential prompts]
+timeArray = []
+timeArray.clear()
+timeArray = timeWindowFrames()
+
+current_sys_datetime = datetime.datetime.now()
+######    0d -- 14d
+default_start = current_sys_datetime - datetime.timedelta(days = 14)
+default_end = current_sys_datetime - datetime.timedelta(days = 1)
+
+#default_start,default_end = timeArray[0]
+window1_start,window1_end = timeArray[1]
+window2_start,window2_end = timeArray[2]
+window3_start,window3_end = timeArray[3]
+
+### [Array to be used for piping TMP file lines into final file]
 #############
-###### !! CHANGE FOR PROD !! #####
+summary_data = []
+summary_data.clear() # Flushing array values just in case -- I dont feel like exception handling and this is easier
+
+### [User credential prompts and opts]
+#############
+PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
+PRTG_HOSTNAME = 'nanm.bluerim.net'   ###!! Static, domain/URL to PRTG server
 #PRTG_PASSWORD = getpass.getpass('Password: ')
-PRTG_PASSWORD = "M9y%23asABUx9svvs"
-###!! Static, domain/URL to PRTG server
-PRTG_HOSTNAME = 'nanm.bluerim.net'
 
-#############
-### [Getting script's current working directory to be used later for safer file IO]
+### [Getting script's current working directory to be used later to ensure that 
+#       no exceptions arise and for safer file IO]
 #############
 CWD_unsanitized = os.getcwd()
-CWD = CWD_unsanitized.replace("\\","/")
+CWD_backslashes = CWD_unsanitized+"/"
+CWD = CWD_backslashes.replace("\\","/")
 
 
+
+### [!] [Defining cliargs from returned param of cliArgumentParser() {To be stored globally}]
 #############
-### [Time window declarations]
-### [A positive time in these comments indicates # of days prior to current (DAY 0)]
-### [eg: "0d -- 14d" = "From today (0d) through 14 days ago (14d)"]
-#############
-now = datetime.datetime.now()
-###  0d -- 14d
-default_start = now - datetime.timedelta(days = 14)
-default_end = now - datetime.timedelta(days = 1)
-###  7d -- 21d
-window_roll_1_start = now - datetime.timedelta(days = 21)
-window_roll_1_end = now - datetime.timedelta(days = 7)
-###  14d -- 28d
-window_roll_2_start = now - datetime.timedelta(days = 28)
-window_roll_2_end = now - datetime.timedelta(days = 14)
-###  21d -- 35d
-window_roll_2_start = now - datetime.timedelta(days = 35)
-window_roll_2_end = now - datetime.timedelta(days = 21)
-
+global cliargs ### I know, globals are bad, but it saves a lot of typing in this situation
 cliargs = cliArgumentParser()
-summary_data = []
-summary_data.clear()
 
+
+
+
+### [Calling temp & complete filepaths, assigning to vars]
 #############
-### [Beginning PRTG API call and assigning data to "sensors" var]
-### [Declaring paths for 'temp' and 'complete' files to be written to]
-#############
-sensors = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
-output_file_TMP = 'output_file_temporary.csv'
-complete_file = f'output_{cliargs.start}--{cliargs.end}.csv'
-if cliargs.output:
-    if cliargs.output.endswith('/'):
-        output_file_TMP = cliargs.output + output_file_TMP
-    else:
-        output_file_TMP_TMP = cliargs.output + '/' + output_file_TMP
+output_file_TMP = defineTMPFilePath(cliargs) #   Sensor & Device data is iterated into this file temporarily to allow Header and Summary Table 
+                                             #  creation after the primary data collection is done.
+                                             #  All temp data is then moved into the Complete output file cleanly.
+complete_file = defineCOMPFilePath(cliargs)
 
-
-
-### [Writing headers into summary/complete file]
+### [Writing headers into summary/complete file to be followed by the Summary Table itself]
 #############
 create_headers(complete_file)
 
-
-
+### [Beginning initial PRTG API call and assigning data to "sensors" var for manipulation]
 #############
-### [Calling and iterating through sensors data from PRTG]
-### [Assigning incoming data to 'properties','traffic_IO',and 'device_name']
-### [Selecting values to be written on each row for respective headers]
+sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
+
+
+
+### [PRTG API call and assigning data to "sensors" var]
 #############
-for sensor in sensors:
-    response = requests.get(
-            f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-            f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
-            f'&usecaption=1'
-            f'&username={cliargs.username}&password={PRTG_PASSWORD}'
-            )
-    if response.status_code == 200:
-
-        data = json.loads(response.text)
-
-        properties = extract_tags(sensor)
-
-        traffic_in = normalize_traffic(data, 'Traffic In (speed)')
-
-        traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
-        
-        device_name = sensor['device'].split(' (')[0]
-
-        out_array = []
-
-        #############
-        ### [LOCATION (Location)]
-        #############
-        if properties.get('kpi_siteid'):
-            out_array.append(re.sub("#", " ", properties['kpi_siteid']))
-        else:
-            out_array.append('NA')
-
-        if cliargs.debug:
-            # Device name (debug)
-            out_array.append(device_name)
-
-            # Device id (debug)
-            out_array.append(sensor['objid'])
-
-        #############
-        ### [MAX TRAFFIC (Mb/s)]
-        #############
-        max_traffic = 0
-        if properties.get('kpi_trafficdirection') == 'up':
-            if traffic_out == []:
-                out_array.append("NA")
-            else:
-                max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                out_array.append(max_traffic)
-        else:
-            if traffic_in == []:
-                out_array.append("NA")
-            else:
-                max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                out_array.append(max_traffic)
-
-        if "Core" in properties.get('kpi_seg'):
-            summary_data.append({'segment': properties.get('kpi_seg'),
-                                 'bandwidth': max_traffic,
-                                 'limit': properties.get('kpi_cktmaxlimit')})
-
-        #############
-        ### [CHOKE POINT (Device)]
-        #############
-        if properties.get('kpi_choke'):
-            out_array.append(properties['kpi_choke'])
-        else:
-            out_array.append('NA')
-
-        #############
-        ### [CHOKE POINT LIMIT (Mb/s)]
-        #############
-        if properties.get('kpi_chokelimit'):
-            out_array.append(properties['kpi_chokelimit'])
-        else:
-            out_array.append('NA')
-
-        #############
-        ### [CIRCUIT MAX LIMIT (Mb/s)]
-        #############
-        if properties.get('kpi_cktmaxlimit'):
-            out_array.append(properties['kpi_cktmaxlimit'])
-        else:
-            out_array.append('NA')
-
-        #############
-        ### [CHOKE POINT UTILIZATION (%)]
-        #############
-        if properties.get('kpi_chokelimit'):
-            out_array.append(max_traffic / int(properties['kpi_chokelimit']))
-        else:
-            out_array.append('NA')
-
-        #############
-        ### [CIRCUIT UTILIZATION (%)]
-        #############
-        if properties.get('kpi_cktmaxlimit'):
-            out_array.append(max_traffic / int(properties['kpi_cktmaxlimit']))
-        else:
-            out_array.append('NA')
-        ###!! Writing (appending) array to temp file
-        out_tmp_csv(out_array, output_file_TMP, 'a')
-    else:
-        print("Error making API call to nanm.bluerim.net (PRTG)")
-        print("HTTP response 200: OK was not received")
-        print("Received response code: "+str(response.status_code))
-        exit(1)
+sensorsHistoricCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall)
 
 
-
-
-### [Calling summary_out to initiate]
+### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
 #############
-summary_out(output_file_TMP,complete_file)
+summary_out(complete_file)
 
 
 
+### [Inserting/appending temp file data into Complete/Main output file]
+#    [Two separate files (TMP & COMP) are used because Brant wants the summary table at the top of the document, but 
+#   the summary table is generated last. The only workaround with the CSV module in Python that I've found works without issue is to
+#   create two documents, one stores the normal device data temporarily. Once the workload is done the table is generated as normal, but is placed into a new document
+#   so it is at the top. All TMP data is then filed in below the table.]
+#############
+csv_joiner(output_file_TMP,complete_file)
