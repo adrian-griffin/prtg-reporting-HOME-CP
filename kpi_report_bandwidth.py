@@ -110,7 +110,7 @@ def cliArgumentParser():
 ### [User credential prompts and opts]
 #############
 PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
-PRTG_HOSTNAME = 'nanm.smartaira.net'   ###!! Static, domain/URL to PRTG server
+PRTG_HOSTNAME = 'nanm.bluerim.net'   ###!! Static, domain/URL to PRTG server
 #PRTG_PASSWORD = getpass.getpass('Password: ')
 
 
