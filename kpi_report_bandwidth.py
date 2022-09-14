@@ -186,14 +186,11 @@ def get_kpi_sensor_ids(username, password):
     """
     ### PRTG API call
 
-    response = requests.get('https://nanm.smartaira.net/api/table.json?content=sensors&output=json&columns=objid,device,tags&filter_tags=kpi_bandwidth&username=agriffin&password=M9y%23asABUx9svvs&sortby=device')
-    '''
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
             f'&username={username}&password={password}&sortby=device'
             )
-    '''
     ### If 200 OK HTTP response is not seen, raise error and print cause to terminal
     if response.status_code == 200:
         response_tree = json.loads(response.text)
@@ -356,11 +353,10 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             ### [dec] - [CHOKE POINT UTILIZATION (%)]
             #############
             if properties.get('kpi_chokelimit'):
-                out_array_get_extra.append(max_traffic / int(properties['kpi_chokelimit']))
+                secondary_df['kpi_chokelimit'][i_index].append(max_traffic / int(properties['kpi_chokelimit']))
             else:
-                out_array_get_extra.append('NA')
+                secondary_df['kpi_chokelimit'][i_index].append('NA')
             
-            out_array_w_extras = out_array_get_extra
              
         else:
             print("Error making API call to nanm.smartaira.net (PRTG)")
@@ -368,7 +364,6 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             print("Received response code: "+str(response.status_code))
             exit(1)
 
-        return out_array_w_extras
 
 def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall):
     i = 5
