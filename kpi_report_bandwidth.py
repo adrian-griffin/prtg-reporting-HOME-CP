@@ -110,7 +110,7 @@ def cliArgumentParser():
 ### [User credential prompts and opts]
 #############
 PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
-PRTG_HOSTNAME = 'nanm.bluerim.net'   ###!! Static, domain/URL to PRTG server
+PRTG_HOSTNAME = 'nanm.smartaira.net'   ###!! Static, domain/URL to PRTG server
 #PRTG_PASSWORD = getpass.getpass('Password: ')
 
 
@@ -302,7 +302,7 @@ def summary_out():
 
 
 
-def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,sensor,i_index):
+def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMainCall,sensor,i_index):
     for k in range(1,3):
         Tstart,Tend = timeWindowFrames(k)
         response = requests.get(
@@ -365,7 +365,7 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_f
             exit(1)
 
 
-def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall):
+def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMainCall):
     i = 5
     for sensor in sensorsMainCall:
         response = requests.get(
@@ -456,11 +456,9 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_fil
             else:
                 secondary_df['kpi_chokelimit'][i].append('NA')         
 
-            out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall,sensor,i)
+            out_array_w_extras = extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMainCall,sensor,i)
 
             i += 1
-            ### [io] - [Writing newly modified array data to 'output_file_TMP' file.]
-            #############
         else:
             print("Error making API call to nanm.smartaira.net (PRTG)")
             print("HTTP response 200: OK was not received")
@@ -477,7 +475,7 @@ summary_data.clear() # Flushing array values just in case -- I dont feel like ex
 
 ### [PRTG API call and assigning data to "sensors" var]
 #############
-sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,output_file_TMP,sensorsMainCall)
+sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMainCall)
 
 ### [Calling summary_out to analyze data from TMP file and create Summary table in COMP file]
 
