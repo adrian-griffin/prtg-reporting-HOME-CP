@@ -184,7 +184,7 @@ def get_kpi_sensor_ids(username, password):
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
-            f'&username={username}&password={password}&sortby=device'
+            f'&username={username}&password={password}&sortby=device', verify=False
             )
     ### If 200 OK HTTP response is not seen, raise error and print cause to terminal
     if response.status_code == 200:
@@ -296,7 +296,7 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsM
                     f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
                     f'&avg={cliargs.avgint}&sdate={Tstart}-00-00&edate={Tend}-23-59'
                     f'&usecaption=1'
-                    f'&username={cliargs.username}&password={PRTG_PASSWORD}'
+                    f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
                     )
         if response.status_code == 200:
             data = json.loads(response.text)
@@ -358,7 +358,7 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMai
                 f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
                 f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
                 f'&usecaption=1'
-                f'&username={cliargs.username}&password={PRTG_PASSWORD}'
+                f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
                 )
         if response.status_code == 200:
 
@@ -372,32 +372,33 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMai
             ### [dec] - [LOCATION (Location)]
             #############
             if properties.get('kpi_siteid'):
-                primary_df['Location'][i].append(re.sub("#", " ", properties['kpi_siteid']))
+                loc_arr[i].append(re.sub("#", " ", properties['kpi_siteid']))
             else:
-                primary_df['Location'][i].append('NA')
+                loc_arr[i].append('NA')
 
             if cliargs.debug:
                 # Device name (debug)
-                primary_df['Location'][i].append(device_name)
+                loc_arr[i].append(device_name)
 
                 # Device id (debug)
-                primary_df['Location'][i].append(sensor['objid'])
+                loc_arr[i].append(sensor['objid'])
 
             ### [dec] - [MAX TRAFFIC (Mb/s)]
             #############
+            maxtraffic_arra = primary_df['MaxTraffic']
             max_traffic = 0
             if properties.get('kpi_trafficdirection') == 'up':
                 if traffic_out == []:
-                    primary_df['MaxTraffic'][i].append("NA")
+                    maxtraffic_arra[i].append("NA")
                 else:
                     max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                    primary_df['MaxTraffic'][i].append(max_traffic)
+                    maxtraffic_arra[i][i].append(max_traffic)
             else:
                 if traffic_in == []:
-                     primary_df['MaxTraffic'][i].append("NA")
+                    maxtraffic_arra[i][i].append("NA")
                 else:
                     max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                    primary_df['MaxTraffic'][i].append(max_traffic)
+                    maxtraffic_arra[i][i].append(max_traffic)
 
             if "Core" in properties.get('kpi_seg'):
                 summary_data.append({'segment': properties.get('kpi_seg'),
