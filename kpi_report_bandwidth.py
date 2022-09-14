@@ -22,9 +22,6 @@ import os
 import subprocess
 import logging
 
-'''---------------------------------------------------------------------------------------------'''
-'''---------------------------------------- FUNCTIONS ------------------------------------------'''
-'''---------------------------------------------------------------------------------------------'''
 ###########################################################
 ### [Most primary functions declared here]
 
@@ -123,7 +120,7 @@ global current_sys_datetime
 ### [!] [Assigning values to global vars]
 #############
 cliargs = cliArgumentParser()
-default_start,default_end = timeWindowFrames(0)
+#default_start,default_end = timeWindowFrames(0)
 
 ### [Timeframes/Windows For Pulling Historical Data from PRTG]
 #############
@@ -184,8 +181,6 @@ def get_kpi_sensor_ids(username, password):
     'device': 'ACA Edge (160.3.214.2)',
     'device_raw': 'ACA Edge (160.3.214.2)'},
     """
-    ### PRTG API call
-
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
@@ -256,12 +251,6 @@ def extract_tags(sensor):
     return device_properties
 
 
-
-#     summary table on top and ensure that nothing is overwritten/deleted]
-#############
-
-            
-
 ### [Beginning initial PRTG API call and assigning data to "sensors" var for manipulation]
 #############
 sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)
@@ -299,8 +288,6 @@ def summary_out():
         summary_df['Bandwidth'][i].append(segment_bandwidth_total)
         summary_df['MaxCapacity'][i].append(segment_bandwidth_total)
         summary_df['Utilization'][i].append(segment_saturation)        
-
-
 
 def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMainCall,sensor,i_index):
     for k in range(1,3):
@@ -363,7 +350,6 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsM
             print("HTTP response 200: OK was not received")
             print("Received response code: "+str(response.status_code))
             exit(1)
-
 
 def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,summary_data,sensorsMainCall):
     i = 5
