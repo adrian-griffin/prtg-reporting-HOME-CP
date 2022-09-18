@@ -35,7 +35,7 @@ CWD_unsanitized = os.getcwd()
 CWD_backslashes = CWD_unsanitized+"/"
 CWD = CWD_backslashes.replace("\\","/")
 
-### [Timeframes/Windows For Pulling Historical Data from PRTG]
+### [Time-Frames/Time Windows For Pulling Historical Data from PRTG]
 #############
 def timeWindowFrames(timeFrameIDRAW):
     timeFrameID = str(timeFrameIDRAW)
@@ -315,6 +315,21 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall,senso
             print("Received response code: "+str(response.status_code))
             exit(1)
     k += 1
+
+    from openpyxl.formatting.rule import ColorScaleRule
+    from openpyxl.styles import colors
+
+
+    rule = ColorScaleRule(start_type='min', start_color=colors.WHITE,end_type='max', end_color=colors.BLUE)
+    outputMainSheet.conditional_formatting.add("F8:J300", rule)
+
+
+    rule = ColorScaleRule(start_type='min', start_value=0, start_color=colors.WHITE, end_type='max', 
+        end_value=100, end_color=colors.BLUE)
+
+    outputMainSheet.conditional_formatting.add("F8:J8", rule)
+
+
     outputWorkbook.save("test.xlsx")
 
 def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall):
@@ -449,18 +464,7 @@ print(totalTimeToExecute)
 #   so it is at the top. All TMP data is then filed in below the table.]
 #############
 
-from openpyxl.formatting.rule import ColorScaleRule
-from openpyxl.styles import colors
 
-rule = ColorScaleRule(start_type='percentile', start_value=0, start_color='000000',
-    end_type='percentile', end_value=1, end_color='FF00AA00')
-
-outputMainSheet.conditional_formatting.add("F8:J8", rule)
-
-
-
-
-outputWorkbook.save("test.xlsx")
 
 
 
