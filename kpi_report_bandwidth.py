@@ -26,6 +26,11 @@ import os
 ### [Getting script's current working directory to be used later to ensure that 
 #       no exceptions arise and for safer file IO]
 #############
+
+
+startTimeTest = time()
+
+
 CWD_unsanitized = os.getcwd()
 CWD_backslashes = CWD_unsanitized+"/"
 CWD = CWD_backslashes.replace("\\","/")
@@ -142,27 +147,38 @@ t28BACK_headers = t28BACK_headers_u.strftime('%m/%d')
 t35BACK_headers = t35BACK_headers_u.strftime('%m/%d')
 
 
-sheetHeaders = ['Location','Max Traffic (Mb/s)','Choke Point','Choke Point Limit (Mb/s)','Circuit Max Limit (Mb/s)','Circuit Utilization (%)',
-    f'Choke Utilization ({t0BACK_headers} - {t14BACK_headers}) (%)',f'Choke Utilization ({t7BACK_headers} - {t21BACK_headers}) (%)',f'Choke Utilization ({t14BACK_headers} - {t28BACK_headers}) (%)',f'Choke Utilization ({t21BACK_headers} - {t35BACK_headers}) (%)',
+sheetHeaders = ['Location','Highest Traffic (Mb/s)','Choke Point (Device)','Choke Point Throttle (Mb/s)','Circuit Max Limit (Mb/s)',
+    'Circuit Utilization',
+    f'Choke Utilization ({t14BACK_headers} - {t0BACK_headers})',
+    f'Choke Utilization ({t21BACK_headers} -  {t7BACK_headers})',
+    f'Choke Utilization ({t28BACK_headers} - {t14BACK_headers})',
+    f'Choke Utilization ({t35BACK_headers} - {t21BACK_headers})',
     'Max Usage Plan','Notes','Action']
 
 coreUtilSummaryHeaders = ['Core Utilization Summary','Bandwidth (Mb/s)',
-    'Gross Utilization (Current) (%)','Gross Utilization (7 Days Ago - 14 Days Ago) (%)','Gross Utilization (14 - 21 Days Ago) (%)']
+    f'Gross Utilization ({t14BACK_headers} - {t0BACK_headers})',
+    f'Gross Utilization ({t21BACK_headers} - {t7BACK_headers})',
+    f'Gross Utilization ({t28BACK_headers} - {t14BACK_headers})']
 
 alphabetArray = ['A','B','C','D','E','F','G','H','I','J','K','L','M']
 
 for letter in alphabetArray:
-    outputMainSheet.column_dimensions[str(letter)].width = '25'
-outputMainSheet.column_dimensions['A'].width = '25'
+    outputMainSheet.column_dimensions[str(letter)].width = '16'
+outputMainSheet.column_dimensions['A'].width = '23'
+outputMainSheet.column_dimensions['K'].width = '12'
+outputMainSheet.column_dimensions['F'].width = '12'
+outputMainSheet.column_dimensions['L'].width = '14'
+outputMainSheet.column_dimensions['M'].width = '14'
+outputMainSheet.column_dimensions['B'].width = '12'
 
 for i in range(0,len(sheetHeaders)):
     outputMainSheet[str(alphabetArray[i])+'7']=sheetHeaders[i]
-    outputMainSheet[str(alphabetArray[i])+'7'].alignment = opyxl.styles.Alignment(horizontal='general', vertical='bottom', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
+    outputMainSheet[str(alphabetArray[i])+'7'].alignment = opyxl.styles.Alignment(horizontal='center', vertical='center', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
 
 
 for i in range(0,len(coreUtilSummaryHeaders)):
     outputMainSheet[str(alphabetArray[i])+'1']=coreUtilSummaryHeaders[i]
-    outputMainSheet[str(alphabetArray[i])+'1'].alignment = opyxl.styles.Alignment(horizontal='general', vertical='bottom', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
+    outputMainSheet[str(alphabetArray[i])+'1'].alignment = opyxl.styles.Alignment(horizontal='center', vertical='center', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
 outputMainSheet['A5']='Total: '
 
 ### [Query/Call PRTG API]
@@ -284,10 +300,7 @@ def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall,senso
                     max_traffic_san = max_traffic
 
             ### [dec] - [CHOKE POINT UTILIZATION (%)]
-            #############
-            from openpyxl.formatting.rule import ColorScaleRule
-            rule = ColorScaleRule(start_type='percentile', start_value=0, start_color='FFAA0000',
-                end_type='percentile', end_value=100, end_color='FF00AA00')
+
 
             if properties.get('kpi_chokelimit'):
                 outputMainSheet.cell(row=int(i_index),column=7+int(k)).value=(float(max_traffic) / float(properties['kpi_chokelimit']))
@@ -424,7 +437,10 @@ def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall):
 #############
 sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall)
 
-
+endTimeTest = time()
+totalTimeToExecute = endTimeTest - startTimeTest
+print("Time to execute: ")
+print(totalTimeToExecute)
 
 ### [Inserting/appending temp file data into Complete/Main output file]
 #    [Two separate files (TMP & COMP) are used because Brant wants the summary table at the top of the document, but 
@@ -432,3 +448,19 @@ sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall)
 #   create two documents, one stores the normal device data temporarily. Once the workload is done the table is generated as normal, but is placed into a new document
 #   so it is at the top. All TMP data is then filed in below the table.]
 #############
+
+from openpyxl.formatting.rule import ColorScaleRule
+from openpyxl.styles import colors
+
+rule = ColorScaleRule(start_type='percentile', start_value=0, start_color='000000',
+    end_type='percentile', end_value=1, end_color='FF00AA00')
+
+outputMainSheet.conditional_formatting.add("F8:J8", rule)
+
+
+
+
+outputWorkbook.save("test.xlsx")
+
+
+
