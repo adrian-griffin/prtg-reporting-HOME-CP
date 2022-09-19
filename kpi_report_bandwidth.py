@@ -17,8 +17,9 @@ import json
 
 import datetime
 import argparse
-import openpyxl as opyxl
+import openpyxl
 import os
+import pprint
 
 ###########################################################
 ### [Most primary functions declared here]
@@ -27,13 +28,6 @@ import os
 #       no exceptions arise and for safer file IO]
 #############
 
-
-startTimeTest = time()
-
-
-CWD_unsanitized = os.getcwd()
-CWD_backslashes = CWD_unsanitized+"/"
-CWD = CWD_backslashes.replace("\\","/")
 
 ### [Time-Frames/Time Windows For Pulling Historical Data from PRTG]
 #############
@@ -74,10 +68,10 @@ def timeWindowFrames(timeFrameIDRAW):
 
 ### [CLI argument parser; --username is required]
 #############
-def cliArgumentParser():
-
-    default_start,default_end = timeWindowFrames("0")
-
+def cliArgumentParser(currentSystemDatetime):
+    now = datetime.datetime.now()
+    default_start = now - datetime.timedelta(days = 28)
+    default_end = now - datetime.timedelta(days = 0)
     parser = argparse.ArgumentParser()
     parser.add_argument('--username', required=False, default="agriffin", ###### !! CHANGE FOR PROD !! #####
                     help='PRTG username for API call')
@@ -85,9 +79,9 @@ def cliArgumentParser():
                     help='Historic data start date (yyyy-mm-dd)')
     parser.add_argument('--end', default=default_end.strftime('%Y-%m-%d'),
                     help='Historic data end date (yyyy-mm-dd)')
-    parser.add_argument('--avgint', default="3600",
+    parser.add_argument('--avgint', default="21600",
                     help='Averaging interval. Smaller numbers increase api call time!'
-                        ' Default is 3600')
+                        ' Default is 21600 seconds (6 hours)')
     parser.add_argument('--debug', action='store_true', dest='debug',
                     help='add additional debugging fields to output')
     parser.add_argument('--percentile', default="99",
@@ -99,91 +93,61 @@ def cliArgumentParser():
     cliargs = parser.parse_args()
     return cliargs
 
-### [User credential prompts and opts]
-#############
-PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
-PRTG_HOSTNAME = 'nanm.smartaira.net'   ###!! Static, domain/URL to PRTG server
-#PRTG_PASSWORD = getpass.getpass('Password: ')
+def xlsx_build():
+    t0BACK_headers_u,t14BACK_headers_u = timeWindowFrames("0")
+    t7BACK_headers_u,t21BACK_headers_u = timeWindowFrames("1")
+    t14BACK_headers_u,t28BACK_headers_u = timeWindowFrames("2")
+    t21BACK_headers_u,t35BACK_headers_u = timeWindowFrames("3")
+
+    t0BACK_headers = t0BACK_headers_u.strftime('%m/%d')
+    t7BACK_headers = t7BACK_headers_u.strftime('%m/%d')
+    t14BACK_headers = t14BACK_headers_u.strftime('%m/%d')
+    t21BACK_headers = t21BACK_headers_u.strftime('%m/%d')
+    t28BACK_headers = t28BACK_headers_u.strftime('%m/%d')
+    t35BACK_headers = t35BACK_headers_u.strftime('%m/%d')
 
 
-### [!] [Defining cliargs from returned param of cliArgumentParser() {To be stored globally}]
-#############
-global cliargs ### I know, globals are bad, but it saves a lot of typing in this situation
-global default_start
-global default_end
-global current_sys_datetime
-### [!] [Assigning values to global vars]
-#############
-cliargs = cliArgumentParser()
-#default_start,default_end = timeWindowFrames(0)
+    sheetHeaders = ['Location','Highest Traffic (Mb/s)','Choke Point (Device)','Choke Point Throttle (Mb/s)','Circuit Max Limit (Mb/s)',
+        'Circuit Utilization',
+        f'Choke Utilization ({t14BACK_headers} - {t0BACK_headers})',
+        f'Choke Utilization ({t21BACK_headers} -  {t7BACK_headers})',
+        f'Choke Utilization ({t28BACK_headers} - {t14BACK_headers})',
+        f'Choke Utilization ({t35BACK_headers} - {t21BACK_headers})',
+        'Max Usage Plan','Notes','Action']
 
-### [Timeframes/Windows For Pulling Historical Data from PRTG]
-#############
-current_sys_datetime = datetime.datetime.now()
-### [Defining path to Complete/Summary file]
-############
+    coreUtilSummaryHeaders = ['Core Utilization Summary','Bandwidth (Mb/s)',
+        f'Gross Utilization ({t14BACK_headers} - {t0BACK_headers})',
+        f'Gross Utilization ({t21BACK_headers} - {t7BACK_headers})',
+        f'Gross Utilization ({t28BACK_headers} - {t14BACK_headers})']
 
+    alphabetArray = ['A','B','C','D','E','F','G','H','I','J','K','L','M']
 
-####################################################################################################
-'''----------------------------------------------------------------------------------------------'''
-'''-------------------------------------------- MAIN --------------------------------------------'''
-'''----------------------------------------------------------------------------------------------'''
-####################################################################################################
-global outputMainSheet
+    for letter in alphabetArray:
+        outputMainSheet.column_dimensions[str(letter)].width = '16'
+    outputMainSheet.column_dimensions['A'].width = '23'
+    outputMainSheet.column_dimensions['K'].width = '12'
+    outputMainSheet.column_dimensions['F'].width = '12'
+    outputMainSheet.column_dimensions['L'].width = '14'
+    outputMainSheet.column_dimensions['M'].width = '14'
+    outputMainSheet.column_dimensions['B'].width = '12'
 
-outputWorkbook = opyxl.Workbook()
-outputMainSheet = outputWorkbook.active
-
-t0BACK_headers_u,t14BACK_headers_u = timeWindowFrames("0")
-t7BACK_headers_u,t21BACK_headers_u = timeWindowFrames("1")
-t14BACK_headers_u,t28BACK_headers_u = timeWindowFrames("2")
-t21BACK_headers_u,t35BACK_headers_u = timeWindowFrames("3")
-
-t0BACK_headers = t0BACK_headers_u.strftime('%m/%d')
-t7BACK_headers = t7BACK_headers_u.strftime('%m/%d')
-t14BACK_headers = t14BACK_headers_u.strftime('%m/%d')
-t21BACK_headers = t21BACK_headers_u.strftime('%m/%d')
-t28BACK_headers = t28BACK_headers_u.strftime('%m/%d')
-t35BACK_headers = t35BACK_headers_u.strftime('%m/%d')
+    for i in range(0,len(sheetHeaders)):
+        outputMainSheet[str(alphabetArray[i])+'7']=sheetHeaders[i]
+        outputMainSheet[str(alphabetArray[i])+'7'].alignment = openpyxl.styles.Alignment(horizontal='center', vertical='center', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
 
 
-sheetHeaders = ['Location','Highest Traffic (Mb/s)','Choke Point (Device)','Choke Point Throttle (Mb/s)','Circuit Max Limit (Mb/s)',
-    'Circuit Utilization',
-    f'Choke Utilization ({t14BACK_headers} - {t0BACK_headers})',
-    f'Choke Utilization ({t21BACK_headers} -  {t7BACK_headers})',
-    f'Choke Utilization ({t28BACK_headers} - {t14BACK_headers})',
-    f'Choke Utilization ({t35BACK_headers} - {t21BACK_headers})',
-    'Max Usage Plan','Notes','Action']
+    for i in range(0,len(coreUtilSummaryHeaders)):
+        outputMainSheet[str(alphabetArray[i])+'1']=coreUtilSummaryHeaders[i]
+        outputMainSheet[str(alphabetArray[i])+'1'].alignment = openpyxl.styles.Alignment(horizontal='center', vertical='center', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
+    outputMainSheet['A5']='Total: '
 
-coreUtilSummaryHeaders = ['Core Utilization Summary','Bandwidth (Mb/s)',
-    f'Gross Utilization ({t14BACK_headers} - {t0BACK_headers})',
-    f'Gross Utilization ({t21BACK_headers} - {t7BACK_headers})',
-    f'Gross Utilization ({t28BACK_headers} - {t14BACK_headers})']
+    outputWorkbook.save("test.xlsx")
 
-alphabetArray = ['A','B','C','D','E','F','G','H','I','J','K','L','M']
+def writeToSheet(yIndex,xIndex,vIndex):
+    outputMainSheet.cell(row=int(yIndex),column=int(xIndex)).value=vIndex
+    outputWorkbook.save("test.xlsx")
 
-for letter in alphabetArray:
-    outputMainSheet.column_dimensions[str(letter)].width = '16'
-outputMainSheet.column_dimensions['A'].width = '23'
-outputMainSheet.column_dimensions['K'].width = '12'
-outputMainSheet.column_dimensions['F'].width = '12'
-outputMainSheet.column_dimensions['L'].width = '14'
-outputMainSheet.column_dimensions['M'].width = '14'
-outputMainSheet.column_dimensions['B'].width = '12'
-
-for i in range(0,len(sheetHeaders)):
-    outputMainSheet[str(alphabetArray[i])+'7']=sheetHeaders[i]
-    outputMainSheet[str(alphabetArray[i])+'7'].alignment = opyxl.styles.Alignment(horizontal='center', vertical='center', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
-
-
-for i in range(0,len(coreUtilSummaryHeaders)):
-    outputMainSheet[str(alphabetArray[i])+'1']=coreUtilSummaryHeaders[i]
-    outputMainSheet[str(alphabetArray[i])+'1'].alignment = opyxl.styles.Alignment(horizontal='center', vertical='center', text_rotation=0, wrap_text=True, shrink_to_fit=False, indent=0)
-outputMainSheet['A5']='Total: '
-
-### [Query/Call PRTG API]
-#############
-def get_kpi_sensor_ids(username, password):
+def get_kpi_sensor_ids(username, password, PRTG_HOSTNAME):
     """
     Returns a dict with the following format:
     {'prtg-version': '22.1.74.1869',
@@ -193,6 +157,7 @@ def get_kpi_sensor_ids(username, password):
     'device': 'ACA Edge (160.3.214.2)',
     'device_raw': 'ACA Edge (160.3.214.2)'},
     """
+   
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
@@ -201,21 +166,23 @@ def get_kpi_sensor_ids(username, password):
     ### If 200 OK HTTP response is not seen, raise error and print cause to terminal
     if response.status_code == 200:
         response_tree = json.loads(response.text)
+        print("Sensor data successfully queried from the API")
         if cliargs.sensorid:
             for i in response_tree.get('sensors'):
                 if i['objid'] == int(cliargs.sensorid):
+                    print(i)
                     return [i]
+                    
         else:
+
             return response_tree.get('sensors')
     else:
-        print("Error making API call to nanm.smartaira.net (PRTG)")
+        print("Error making API call to nanm.smartaira.net")
         print("HTTP response 200: OK was not received")
         print("Received response code: "+str(response.status_code))
         quit()
 
 
-### [Converts all speed values to Mb/s]
-#############
 def normalize_traffic(data, label):
     """
     Takes an input of raw PRTG historic data and the label (ie 'Traffic In (speed)')
@@ -227,9 +194,6 @@ def normalize_traffic(data, label):
             traffic_list.append(i[label] * 0.000008)
     return traffic_list
 
-### [Extract desired information via tags from PRTG API]
-#   [Delimits incoming PRTG JSON tags to avoid conflictions and exceptions]
-#############
 def extract_tags(sensor):
     """
     Takes a sensor dictionary and extacts a properties dictionary from the tags
@@ -262,209 +226,354 @@ def extract_tags(sensor):
 
     return device_properties
 
+def extract_datetime(response_tree):
+    timeFrame1_arr = []
+    timeFrame1_arr.clear()
+    timeFrame2_arr = []
+    timeFrame2_arr.clear()
+    timeFrame3_arr = []
+    timeFrame3_arr.clear()
+    timeFrame4_arr = []
+    timeFrame4_arr.clear()
 
-### [Beginning initial PRTG API call and assigning data to "sensors" var for manipulation]
-#############
-sensorsMainCall = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD)     
+    now = datetime.datetime.now()
+    now = now.date()
 
-def extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall,sensor,i_index):
-    for k in range(1,4):
-        Tstart,Tend = timeWindowFrames(k)
-        response = requests.get(
-                    f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-                    f'&avg={cliargs.avgint}&sdate={Tstart}-00-00&edate={Tend}-23-59'
-                    f'&usecaption=1'
-                    f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
-                    )
-        if response.status_code == 200:
-            data = json.loads(response.text)
-            properties = extract_tags(sensor)
-            traffic_in = normalize_traffic(data, 'Traffic In (speed)')
-            traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
-            device_name = sensor['device'].split(' (')[0]
+    historicResponseData = json.loads(response_tree.text)
 
-            ### [dec] - [MAX TRAFFIC (Mb/s)]
-            #############
-            max_traffic = 0
-            if properties.get('kpi_trafficdirection') == 'up':
-                if traffic_out == []:
-                    max_traffic_san = 0
-                else:
-                    max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                    max_traffic_san = max_traffic
-            else:
-                if traffic_in == []:
-                    max_traffic_san = 0
-                else:
-                    max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                    max_traffic_san = max_traffic
-
-            ### [dec] - [CHOKE POINT UTILIZATION (%)]
+    i = 0
+    while i < len(historicResponseData['histdata']):
+        
 
 
-            if properties.get('kpi_chokelimit'):
-                outputMainSheet.cell(row=int(i_index),column=7+int(k)).value=(float(max_traffic) / float(properties['kpi_chokelimit']))
-                outputMainSheet.cell(row=int(i_index),column=7+int(k)).style='Percent'
-            else:
-                outputMainSheet.cell(row=int(i_index),column=7+int(k)).value='NA'
-            
-             
+        i += 1
+    #return timeFrame1_arr,timeFrame2_arr,timeFrame3_arr,timeFrame4_arr
+
+    timeframe1_dict = {}
+    timeframe1_dict["histdata"] = timeFrame1_arr
+    timeframe2_dict = {}
+    timeframe2_dict["histdata"] = timeFrame2_arr
+    timeframe3_dict = {}
+    timeframe3_dict["histdata"] = timeFrame3_arr
+    timeframe4_dict = {}
+    timeframe4_dict["histdata"] = timeFrame4_arr
+
+    return [[timeframe1_dict,timeframe2_dict],[timeframe3_dict,timeframe4_dict]]
+
+def buildComps(FrameWindow,datablock,historicResponseData,sensor,sensor_index):
+
+    if 
+
+
+
+    prtgDataDict['timeframes']['0 Weeks Back'] = {
+      "FrameWindow": "0 Weeks Back",
+      "treesize": 0,
+      "histdata": [
+    bbbb{
+      "datetime": "",
+      "Traffic Total (volume)": 0,
+      "Traffic Total (speed)": 0,
+      "Traffic In (volume)": 0,
+      "Traffic In (speed)": 0,
+      "Traffic Out (volume)": 0,
+      "Traffic Out (speed)": 0,
+      "Errors in (volume)": 0,
+      "Errors in (speed)": 0,
+      "Errors out (volume)": 0,
+      "Errors out (speed)": 0,
+      "Discards in (volume)": 0,
+      "Discards in (speed)": 0,
+      "Discards out (volume)": 0,
+      "Discards out (speed)": 0,
+      "Downtime": 0,
+      "coverage": "0 %"
+    }]}
+
+
+
+
+
+    prtgDataDict[str(sensor['device'])]['historical']['data'] = {}
+
+def storeAPIResponse(sensordata,historicResponseData,sensor,sensor_index):
+#    prtgDataDict[str(sensor['device'])]['objid'] = sensor['objid']
+    i = 0
+    while i < int(historicResponseData['treesize']):
+        #dateBasedSectioning(sensordata, historicResponseData, sensor, sensor_index)
+        indexHistoryDictionary = historicResponseData['histdata'][i]
+        prtg_formatted_datetime = indexHistoryDictionary['datetime']
+        try:
+            regex_datetimesrc = re.search(r'\d{1}/\d{2}/\d{4}',prtg_formatted_datetime)
+        except AttributeError:
+            pass 
+        if regex_datetimesrc:
+            py_formatted_datetime = datetime.datetime.strptime(regex_datetimesrc.group(), '%m/%d/%Y')
+        else: 
+            try:
+                regex_datetimesrc = re.search(r'\d{2}/\d{2}/\d{4}',prtg_formatted_datetime)
+            except AttributeError:
+                print("No date found in 'datetime' object!")
+                pass
+            if regex_datetimesrc:
+                py_formatted_datetime = datetime.datetime.strptime(regex_datetimesrc.group(), '%m/%d/%Y')
+
+        py_formatted_date = py_formatted_datetime.date()
+
+        if py_formatted_date > now:
+                print("Received PRTG data has out of range timestamp! (In the future)")
+        elif py_formatted_date < (now - datetime.timedelta(days = 28)):
+            print("Received PRTG data has out of range timestamp! (Too far back)")
+
+        elif py_formatted_date > (now - datetime.timedelta(days = 7)):
+            buildComps(0,historicResponseData['histdata'][i],historicResponseData,sensor,sensor_index)
+
+        elif py_formatted_date < (now - datetime.timedelta(days = 21)):
+            buildComps(1,historicResponseData['histdata'][i],historicResponseData,sensor,sensor_index)
+
+        elif py_formatted_date > (now - datetime.timedelta(days = 21)) and py_formatted_date < (now - datetime.timedelta(days = 14)):
+            buildComps(2,historicResponseData['histdata'][i],historicResponseData,sensor,sensor_index)
+
+        elif py_formatted_date < (now - datetime.timedelta(days = 7)) and py_formatted_date > (now - datetime.timedelta(days = 14)):
+            buildComps(3,historicResponseData['histdata'][i],historicResponseData,sensor,sensor_index)
+
+        else: 
+            print("Error extracting datetime from PRTG data!")
+
+
+        i += 1
+    '''
+    for key,value in sensor.items():
+        prtgDataDict[str(sensor['tags'])] = {}
+        sensor_tags = sensor['tags']
+        prtgDataDict[str(sensor['tags'])]['bandwidthsensor kpi_bandwidth kpi_choke=Circuit kpi_chokelimit=1000 kpi_cktmaxlimit=1000 kpi_seg=DIA kpi_siteid=94th#Aero router snmptrafficsensor router']
+    '''
+
+
+
+
+
+
+
+def prtgExtendHistParse1(timeFrame2_dict,sensor,i):
+
+    timeFrame2_response = json.dumps(timeFrame2_dict)
+
+    data = json.loads(timeFrame2_response.text)
+    properties = extract_tags(sensor)
+    traffic_in = normalize_traffic(data, 'Traffic In (speed)')
+    traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
+    device_name = sensor['device'].split(' (')[0]
+
+    ### [dec] - [MAX TRAFFIC (Mb/s)]
+    #############
+    max_traffic = 0
+    if properties.get('kpi_trafficdirection') == 'up':
+        if traffic_out == []:
+            max_traffic_san = 0
         else:
-            print("Error making API call to nanm.smartaira.net (PRTG)")
+            max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
+            max_traffic_san = max_traffic
+    else:
+        if traffic_in == []:
+            max_traffic_san = 0
+        else:
+            max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
+            max_traffic_san = max_traffic
+
+    ### [dec] - [CHOKE POINT UTILIZATION (%)]
+
+    if properties.get('kpi_chokelimit'):
+        outputMainSheet.cell(row=int(i),column=8).value=(float(max_traffic) / float(properties['kpi_chokelimit']))
+        outputMainSheet.cell(row=int(i),column=8).style='Percent'
+    else:
+        outputMainSheet.cell(row=int(i),column=8).value='NA'
+
+def prtgMainParse(timeFrame1_dict,sensor,kpi_seg_arr,s_count,i):
+    
+     # Declares 8th row on xlsx sheet to write mainResponseData to
+
+    timeFrame1_response = json.dumps(timeFrame1_dict, indent=4)
+
+    mainResponseData = json.loads(timeFrame1_response.text)
+    sensorTagData = extract_tags(sensor)
+    trafficInbound = normalize_traffic(mainResponseData, 'Traffic In (speed)')
+    trafficOutbound = normalize_traffic(mainResponseData, 'Traffic Out (speed)')
+    deviceName = sensor['device'].split(' (')[0]
+    print("API data parsed and stored into memory")
+
+    ### [dec] - [LOCATION (Location)]
+    #############
+    if sensorTagData.get('kpi_siteid'):
+        writeToSheet(i,1,re.sub("#", " ", sensorTagData['kpi_siteid']))
+    else:
+        writeToSheet(i,1,'NA')
+
+    if cliargs.debug:
+        # Device name (debug)
+        print(deviceName)
+        # Device id (debug)
+        print(sensor['objid'])
+
+    ### [dec] - [MAX TRAFFIC (Mb/s)]
+    #############
+    max_traffic = 0
+    if sensorTagData.get('kpi_trafficdirection') == 'up':
+        if trafficOutbound == []:
+            writeToSheet(i,2,'NA')
+        else:
+            max_traffic = math.ceil(numpy.percentile(trafficOutbound, int(cliargs.percentile)))
+            writeToSheet(i,2,max_traffic)
+    else:
+        if trafficInbound == []:
+            writeToSheet(i,2,'NA')
+        else:
+            max_traffic = math.ceil(numpy.percentile(trafficInbound, int(cliargs.percentile)))
+            writeToSheet(i,2,max_traffic)
+
+    ### [dec] - [CHOKE POINT (Device)]
+    #############
+    if sensorTagData.get('kpi_choke'):
+        writeToSheet(i,3,sensorTagData['kpi_choke'])
+    else:
+        outputMainSheet.cell(row=int(i),column=3).value='NA'
+        writeToSheet(i,3,'NA')
+
+    ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
+    #############
+    if sensorTagData.get('kpi_chokelimit'):
+        writeToSheet(i,4,float(sensorTagData['kpi_chokelimit']))
+        outputMainSheet.cell(row=int(i),column=int(4)).style='Percent'
+    else:
+        writeToSheet(i,4,'NA')
+    
+
+
+    ### [dec] - [CIRCUIT MAX LIMIT (Mb/s)]
+    #############
+    if sensorTagData.get('kpi_cktmaxlimit'):
+        writeToSheet(i,5,float(sensorTagData['kpi_cktmaxlimit']))
+    else:
+        writeToSheet(i,5,'NA')
+
+    ### [dec] - [CIRCUIT UTILIZATION (%)]
+    #############
+    if sensorTagData.get('kpi_cktmaxlimit'):
+        writeToSheet(i,6,(float(max_traffic) / float(sensorTagData['kpi_cktmaxlimit'])))
+        outputMainSheet.cell(row=int(i),column=int(6)).style='Percent'
+    else:
+        writeToSheet(i,6,'NA')
+
+
+    ### [dec] - [CHOKE POINT UTILIZATION (%) 1]
+    #############
+    if sensorTagData.get('kpi_chokelimit'):
+        writeToSheet(i,7,(float(max_traffic) / float(sensorTagData['kpi_chokelimit'])))
+        outputMainSheet.cell(row=int(i),column=int(7)).style='Percent'
+    else:
+        writeToSheet(i,7,'NA') 
+
+
+    if "Core" in sensorTagData.get('kpi_seg'):
+        print("Core found, data will be written at the top of XLSX output")
+        if sensorTagData.get('kpi_seg') in kpi_seg_arr:
+            pass
+        else:
+            writeToSheet(1+s_count,1,sensorTagData.get('kpi_seg'))
+            writeToSheet(1+s_count,2,max_traffic)
+            writeToSheet(1+s_count,3,(float(max_traffic)/float(sensorTagData.get('kpi_cktmaxlimit'))))
+            outputMainSheet.cell(row=int(1+s_count),column=3).style='Percent'
+            s_count += 1
+            kpi_seg_arr.append(sensorTagData.get('kpi_seg'))
+
+def prtgMainCall(sensordata,PRTG_HOSTNAME,PRTG_PASSWORD,cliargs,kpi_seg_arr,s_count):
+    i = 8
+    sensor_index = 0
+    print("Writing API query results to cache")
+    for sensor in sensordata:
+        print("Starting up new HTTPS session")
+        response = requests.get(
+            f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
+            f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
+            f'&usecaption=1'
+            f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
+            )
+        if response.status_code == 200:
+            print("Initial PRTG API query successful")
+            response_j = response.json()
+
+            storeAPIResponse(sensordata,response_j,sensor,sensor_index)
+            buildComps(sensordata,historicResponseData,sensor,sensor_index)
+
+        else:
+            print("Error making 'main' API call to nanm.smartaira.net (PRTG)")
             print("HTTP response 200: OK was not received")
             print("Received response code: "+str(response.status_code))
             exit(1)
-    k += 1
+
+        i += 1
+        print("Closing up the HTTPS session")
+        sensor_index += 1
+### [PRTG API call and assigning data to "sensors" var]
+#############
+
+
+if __name__ == '__main__':
+    
+    PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
+    PRTG_HOSTNAME = 'nanm.smartaira.net'   ###!! Static, domain/URL to PRTG server
+    #PRTG_PASSWORD = getpass.getpass('Password: ')
+
+    outputWorkbook = openpyxl.Workbook()
+    outputMainSheet = outputWorkbook.active
+
 
     from openpyxl.formatting.rule import ColorScaleRule
     from openpyxl.styles import colors
 
-
-    rule = ColorScaleRule(start_type='min', start_color=colors.WHITE,end_type='max', end_color=colors.BLUE)
-    outputMainSheet.conditional_formatting.add("F8:J300", rule)
-
-
-    rule = ColorScaleRule(start_type='min', start_value=0, start_color=colors.WHITE, end_type='max', 
+    alertRule = ColorScaleRule(start_type='min', start_value=0, start_color=colors.WHITE, end_type='max', 
         end_value=100, end_color=colors.BLUE)
 
-    outputMainSheet.conditional_formatting.add("F8:J8", rule)
+    outputMainSheet.conditional_formatting.add("F8:J250", alertRule)
 
+    print("Conditional formatting applied successfully")
+
+    global prtgDataDict
+    prtgDataDict = {}
+
+    ### [!] [Defining cliargs from returned param of cliArgumentParser() {To be stored globally}]
+    #############
+    global cliargs ### I know, globals are bad, but it saves a lot of typing in this situation
+    global default_start
+    global default_end
+    global current_sys_datetime
+    ### [!] [Assigning values to global vars]
+    ############
+
+    currentSystemDatetime = datetime.datetime.now()
+    currentSystemDate = currentSystemDatetime.date()
+
+
+
+    ## [user io] 
+    cliargs = cliArgumentParser(currentSystemDatetime) # Parses CLI args
+
+    ## [disk io] 
+    xlsx_build() # Creates XLSX file and defines headers, column widths, row heights, etc. 
+                 # Saves to 'test.xlsx', needs to be changed to reflect proper naming scheme
+    print("XLSX file template built successfully")
+
+    ## [api] 
+    sensorKPIData = get_kpi_sensor_ids(cliargs.username, PRTG_PASSWORD, PRTG_HOSTNAME)
+    print("PRTG Sensors retrieved successfully")
+    
+    kpi_seg_arr = []
+    kpi_seg_arr.clear()
+    s_count = 1
+
+    prtgMainCall(sensorKPIData, PRTG_HOSTNAME, PRTG_PASSWORD, cliargs, kpi_seg_arr,s_count)
+    
+
+       
 
     outputWorkbook.save("test.xlsx")
-
-def sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall):
-    i = 8
-    s_count = 1
-    kpi_seg_arr = []
-
-    def outputToSheet(yIndex,xIndex,vIndex):
-        outputMainSheet.cell(row=int(yIndex),column=int(xIndex)).value=vIndex
-
-    for sensor in sensorsMainCall:
-        response = requests.get(
-                f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-                f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
-                f'&usecaption=1'
-                f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
-                )
-        if response.status_code == 200:
-
-            data = json.loads(response.text)
-            properties = extract_tags(sensor)
-            traffic_in = normalize_traffic(data, 'Traffic In (speed)')
-            traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
-            device_name = sensor['device'].split(' (')[0]
-            
-
-            ### [dec] - [LOCATION (Location)]
-            #############
-            if properties.get('kpi_siteid'):
-                outputToSheet(i,1,re.sub("#", " ", properties['kpi_siteid']))
-            else:
-                outputToSheet(i,1,'NA')
-
-            if cliargs.debug:
-                # Device name (debug)
-                outputToSheet(i,1,device_name)
-                
-                # Device id (debug)
-                #outputToSheet(i,1,sensor['objid'])
-
-            ### [dec] - [MAX TRAFFIC (Mb/s)]
-            #############
-            max_traffic = 0
-            if properties.get('kpi_trafficdirection') == 'up':
-                if traffic_out == []:
-                    outputToSheet(i,2,'NA')
-                else:
-                    max_traffic = math.ceil(numpy.percentile(traffic_out, int(cliargs.percentile)))
-                    outputToSheet(i,2,max_traffic)
-            else:
-                if traffic_in == []:
-                    outputToSheet(i,2,'NA')
-                else:
-                    max_traffic = math.ceil(numpy.percentile(traffic_in, int(cliargs.percentile)))
-                    outputToSheet(i,2,max_traffic)
-
-            if "Core" in properties.get('kpi_seg'):
-                if properties.get('kpi_seg') in kpi_seg_arr:
-                    pass
-                else:
-                    outputToSheet(1+s_count,1,properties.get('kpi_seg'))
-                    outputToSheet(1+s_count,2,max_traffic)
-                    outputToSheet(1+s_count,3,(float(max_traffic)/float(properties.get('kpi_cktmaxlimit'))))
-                    outputMainSheet.cell(row=int(1+s_count),column=3).style='Percent'
-                    s_count += 1
-                    kpi_seg_arr.append(properties.get('kpi_seg'))
-
-            ### [dec] - [CHOKE POINT (Device)]
-            #############
-            if properties.get('kpi_choke'):
-                outputToSheet(i,3,properties['kpi_choke'])
-            else:
-                outputMainSheet.cell(row=int(i),column=3).value='NA'
-                outputToSheet(i,3,'NA')
-
-            ### [dec] - [CHOKE POINT LIMIT (Mb/s)]
-            #############
-            if properties.get('kpi_chokelimit'):
-                outputToSheet(i,4,float(properties['kpi_chokelimit']))
-                outputMainSheet.cell(row=int(i),column=int(6)).style='Percent'
-            else:
-                outputToSheet(i,4,'NA')
-            
-
-
-            ### [dec] - [CIRCUIT MAX LIMIT (Mb/s)]
-            #############
-            if properties.get('kpi_cktmaxlimit'):
-                outputToSheet(i,5,float(properties['kpi_cktmaxlimit']))
-            else:
-                outputToSheet(i,5,'NA')
-
-            ### [dec] - [CIRCUIT UTILIZATION (%)]
-            #############
-            if properties.get('kpi_cktmaxlimit'):
-                outputToSheet(i,6,(float(max_traffic) / float(properties['kpi_cktmaxlimit'])))
-                outputMainSheet.cell(row=int(i),column=int(6)).style='Percent'
-            else:
-                outputToSheet(i,6,'NA')
-
-
-            ### [dec] - [CHOKE POINT UTILIZATION (%)]
-            #############
-            if properties.get('kpi_chokelimit'):
-                outputToSheet(i,7,(float(max_traffic) / float(properties['kpi_chokelimit'])))
-                outputMainSheet.cell(row=int(i),column=int(7)).style='Percent'
-            else:
-                outputToSheet(i,7,'NA') 
-
-            extraChokeUtilCalc(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall,sensor,i)
-
-            i += 1
-        else:
-            print("Error making API call to nanm.smartaira.net (PRTG)")
-            print("HTTP response 200: OK was not received")
-            print("Received response code: "+str(response.status_code))
-            exit(1)
-
-### [PRTG API call and assigning data to "sensors" var]
-#############
-sensorsFrameCall(PRTG_HOSTNAME,cliargs,PRTG_PASSWORD,sensorsMainCall)
-
-endTimeTest = time()
-totalTimeToExecute = endTimeTest - startTimeTest
-print("Time to execute: ")
-print(totalTimeToExecute)
-
-### [Inserting/appending temp file data into Complete/Main output file]
-#    [Two separate files (TMP & COMP) are used because Brant wants the summary table at the top of the document, but 
-#   the summary table is generated last. The only workaround with the CSV module in Python that I've found works without issue is to
-#   create two documents, one stores the normal device data temporarily. Once the workload is done the table is generated as normal, but is placed into a new document
-#   so it is at the top. All TMP data is then filed in below the table.]
-#############
-
-
-
-
-
