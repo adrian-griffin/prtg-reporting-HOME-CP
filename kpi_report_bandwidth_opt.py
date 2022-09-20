@@ -43,7 +43,7 @@ def cliArgumentParser(currentSystemDatetime):
                     help='Historic data end date (yyyy-mm-dd)')
     parser.add_argument('--avgint', default="21600",
                     help='Averaging interval. Smaller numbers increase api call time!'
-                        ' Default is 21600 seconds (6 hours)')
+                        ' Default is 14400 seconds')
     parser.add_argument('--debug', action='store_true', dest='debug',
                     help='add additional debugging fields to output')
     parser.add_argument('--percentile', default="99",
@@ -150,7 +150,7 @@ def get_kpi_sensor_ids(username, password, PRTG_HOSTNAME):
     response = requests.get(
             f'https://{PRTG_HOSTNAME}/api/table.json?content=sensors&output=json'
             f'&columns=objid,device,tags&filter_tags=kpi_bandwidth'
-            f'&username={username}&password={password}&sortby=device', verify=False
+            f'&username={username}&password={password}&sortby=device'
             )
     ### If 200 OK HTTP response is not seen, raise error and print cause to terminal
     if response.status_code == 200:
@@ -483,7 +483,7 @@ def prtgMainCall(sensordata,PRTG_HOSTNAME,PRTG_PASSWORD,cliargs,kpi_seg_arr,s_co
             f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
             f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-0-0'
             f'&usecaption=1'
-            f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
+            f'&username={cliargs.username}&password={PRTG_PASSWORD}'
             )
         if response.status_code == 200:
             response_j = response.json()
