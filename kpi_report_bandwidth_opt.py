@@ -29,41 +29,7 @@ import os
 #############
 
 
-### [Time-Frames/Time Windows For Pulling Historical Data from PRTG]
-#############
-def timeWindowFrames(timeFrameIDRAW):
-    timeFrameID = str(timeFrameIDRAW)
-    #############
-    ### [Time window declarations]
-    ### [A positive time in these comments indicates # of days prior to current (DAY 0)]
-    ### [eg: "0d -- 14d" = "From today (0d) through 14 days ago (14d)"]
-    #############
-    current_sys_datetime = datetime.datetime.now()
-    ######    0d -- 14d
-    def_s = current_sys_datetime - datetime.timedelta(days = 14)
-    def_e = current_sys_datetime - datetime.timedelta(days = 1)
-    ######    7d -- 21d
-    win1_s = current_sys_datetime - datetime.timedelta(days = 21)
-    win1_e = current_sys_datetime - datetime.timedelta(days = 7)
-    ######    14d -- 28d
-    win2_s = current_sys_datetime - datetime.timedelta(days = 28)
-    win2_e = current_sys_datetime - datetime.timedelta(days = 14)
-    ######    21d -- 35d
-    win3_s = current_sys_datetime - datetime.timedelta(days = 35)
-    win3_e = current_sys_datetime - datetime.timedelta(days = 21)
 
-    # return [def_s,def_e],[win1_s,win1_e],[win2_s,win2_e],[win3_s,win3_e]
-    if timeFrameID == "0":
-        return def_s,def_e
-    elif timeFrameID == "1":
-        return win1_s,win1_e
-    elif timeFrameID == "2":
-        return win2_s,win2_e
-    elif timeFrameID == "3":
-        return win3_s,win3_e
-    else: 
-        print("Error: timeWindowFrames -- Invalid arguments passed")
-### [Defining path to Temporary file]
 def cliArgumentParser(currentSystemDatetime):
     now = datetime.datetime.now()
     default_start = now - datetime.timedelta(days = 28)
@@ -255,40 +221,6 @@ def extract_tags(sensor):
         device_properties.update(filter_tags(tag_string, tag))
 
     return device_properties
-
-def extract_datetime(response_tree):
-    timeFrame1_arr = []
-    timeFrame1_arr.clear()
-    timeFrame2_arr = []
-    timeFrame2_arr.clear()
-    timeFrame3_arr = []
-    timeFrame3_arr.clear()
-    timeFrame4_arr = []
-    timeFrame4_arr.clear()
-
-    now = datetime.datetime.now()
-    now = now.date()
-
-    historicResponseData = json.loads(response_tree.text)
-
-    i = 0
-    while i < len(historicResponseData['histdata']):
-        
-
-
-        i += 1
-    #return timeFrame1_arr,timeFrame2_arr,timeFrame3_arr,timeFrame4_arr
-
-    timeframe1_dict = {}
-    timeframe1_dict["histdata"] = timeFrame1_arr
-    timeframe2_dict = {}
-    timeframe2_dict["histdata"] = timeFrame2_arr
-    timeframe3_dict = {}
-    timeframe3_dict["histdata"] = timeFrame3_arr
-    timeframe4_dict = {}
-    timeframe4_dict["histdata"] = timeFrame4_arr
-
-    return [[timeframe1_dict,timeframe2_dict],[timeframe3_dict,timeframe4_dict]]
 
 def buildComps(loc_index,FrameWindow,datablock,historicResponseData,sensor,sensor_index):
     try:
@@ -569,13 +501,17 @@ def prtgMainCall(sensordata,PRTG_HOSTNAME,PRTG_PASSWORD,cliargs,kpi_seg_arr,s_co
 #############
 
 if __name__ == '__main__':
-    
+    # IP hostname & requests.session   : Time to run: 941.9562714099884 s [15 min]
+    # IP hostname & requests.get       : Time to run: 864.3155009746552 s [14 min]
+    # URL hosthame & requests.get      : Time to run: 845.8513550758362 s [14 min]
+    # URL hostname & requests.session  : Time to run: 936.6703135967255 s [15 min]
     import time
     beginTime = time.time()
 
 
     PRTG_PASSWORD = "M9y%23asABUx9svvs"  ###### !! CHANGE FOR PROD !! ##### ----------
     PRTG_HOSTNAME = 'nanm.smartaira.net'   ###!! Static, domain/URL to PRTG server
+    #PRTG_HOSTNAME = '64.71.154.163'
     #PRTG_PASSWORD = getpass.getpass('Password: ')
 
     outputWorkbook = openpyxl.Workbook()
@@ -586,10 +522,6 @@ if __name__ == '__main__':
     outputMainSheet = outputWorkbook.create_sheet("Property Bandwidths")
     outputSummarySheet = outputWorkbook.create_sheet("Summaries")
 
-
-
-
-
     from openpyxl.formatting.rule import ColorScaleRule
     from openpyxl.styles import colors
 
@@ -599,8 +531,6 @@ if __name__ == '__main__':
     outputMainSheet.conditional_formatting.add("F2:J250", alertRule)
     outputSummarySheet.conditional_formatting.add("C2:F250", alertRule)
 
-    print("Conditional formatting applied successfully")
-
     global prtgDataDict
     prtgDataDict = {}
 
@@ -609,7 +539,6 @@ if __name__ == '__main__':
     global cliargs ### I know, globals are bad, but it saves a lot of typing in this situation
     global default_start
     global default_end
-    global current_sys_datetime
     ### [!] [Assigning values to global vars]
     ############
 
