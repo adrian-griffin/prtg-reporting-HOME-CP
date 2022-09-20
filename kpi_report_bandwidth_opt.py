@@ -1,4 +1,4 @@
-### --------   PRTG-XLSX-Report-Generator.py
+# --------   PRTG-XLSX-Report-Generator.py
 # -------------------------------------------------------------------------------
 #
 #   Pulls sensor & device data from PRTG API and neatly formats the data into a .xmlx (MS Excel) file
