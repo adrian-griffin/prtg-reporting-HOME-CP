@@ -297,7 +297,7 @@ def buildComps(FrameWindow,datablock,historicResponseData,sensor,sensor_index):
     prtgDataDict[str(sensor['device'])]['historical']['data'] = {}
 
 def storeAPIResponse(sensordata,historicResponseData,sensor,sensor_index):
-#    prtgDataDict[str(sensor['device'])]['objid'] = sensor['objid']
+    #    prtgDataDict[str(sensor['device'])]['objid'] = sensor['objid']
     i = 0
     while i < int(historicResponseData['treesize']):
         #dateBasedSectioning(sensordata, historicResponseData, sensor, sensor_index)
@@ -348,12 +348,6 @@ def storeAPIResponse(sensordata,historicResponseData,sensor,sensor_index):
         sensor_tags = sensor['tags']
         prtgDataDict[str(sensor['tags'])]['bandwidthsensor kpi_bandwidth kpi_choke=Circuit kpi_chokelimit=1000 kpi_cktmaxlimit=1000 kpi_seg=DIA kpi_siteid=94th#Aero router snmptrafficsensor router']
     '''
-
-
-
-
-
-
 
 def prtgExtendHistParse1(timeFrame2_dict,sensor,i):
 
