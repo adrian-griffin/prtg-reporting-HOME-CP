@@ -1,4 +1,4 @@
-# --------   PRTG-XLSX-Report-Generator.py
+### --------   PRTG-XLSX-Report-Generator.py
 # -------------------------------------------------------------------------------
 #
 #   Pulls sensor & device data from PRTG API and neatly formats the data into a .xmlx (MS Excel) file
@@ -93,8 +93,8 @@ def xlsx_build():
         outputMainSheet.column_dimensions[str(letter)].width = '16'
         outputSummarySheet.column_dimensions[str(letter)].width = '16'
 
-    outputMainSheet.column_dimensions['A'].width = '26'
-    outputSummarySheet.column_dimensions['A'].width = '26'
+    outputMainSheet.column_dimensions['A'].width = '28'
+    outputSummarySheet.column_dimensions['A'].width = '28'
     outputMainSheet.column_dimensions['K'].width = '12'
     outputSummarySheet.column_dimensions['K'].width = '12'
     outputMainSheet.column_dimensions['F'].width = '12'
@@ -340,6 +340,7 @@ def prtgExtendHistParse(FrameWindow,sensor,kpi_seg_arr,s_count,i,datablock):
 
 
     if "Core" in sensorTagData.get('kpi_seg'):
+        s_count = len(kpi_seg_arr)+1
         if sensorTagData.get('kpi_seg') in kpi_seg_arr:
             pass
         else:
@@ -457,6 +458,7 @@ def prtgMainParse(FrameWindow,sensor,kpi_seg_arr,s_count,i,datablock):
 
 
     if "Core" in sensorTagData.get('kpi_seg'):
+        s_count = len(kpi_seg_arr)+1
         if sensorTagData.get('kpi_seg') in kpi_seg_arr:
             pass
         else:
@@ -479,7 +481,7 @@ def prtgMainCall(sensordata,PRTG_HOSTNAME,PRTG_PASSWORD,cliargs,kpi_seg_arr,s_co
     for sensor in sensordata:
         response = api_session.get(
             f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-            f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-23-59'
+            f'&avg={cliargs.avgint}&sdate={cliargs.start}-00-00&edate={cliargs.end}-0-0'
             f'&usecaption=1'
             f'&username={cliargs.username}&password={PRTG_PASSWORD}', verify=False
             )
@@ -487,6 +489,11 @@ def prtgMainCall(sensordata,PRTG_HOSTNAME,PRTG_PASSWORD,cliargs,kpi_seg_arr,s_co
             response_j = response.json()
 
             storeAPIResponse(loc_index,sensordata,response_j,sensor,sensor_index)
+            outputSummarySheet['B5']='=SUM(B2:B4)'
+            outputSummarySheet['C5']='=SUM(C2:C4)'
+            outputSummarySheet['D5']='=SUM(D2:D4)'
+            outputSummarySheet['E5']='=SUM(E2:E4)'
+            outputSummarySheet['F5']='=SUM(F2:F4)'
             
 
         else:
@@ -529,7 +536,7 @@ if __name__ == '__main__':
         end_value=100, end_color='F8696B')
 
     outputMainSheet.conditional_formatting.add("F2:J250", alertRule)
-    outputSummarySheet.conditional_formatting.add("C2:F250", alertRule)
+    outputSummarySheet.conditional_formatting.add("C2:F40", alertRule)
 
     global prtgDataDict
     prtgDataDict = {}
