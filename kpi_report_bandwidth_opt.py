@@ -30,43 +30,11 @@ import os
 
 
 ### [Time-Frames/Time Windows For Pulling Historical Data from PRTG]
-#############
-def timeWindowFrames(timeFrameIDRAW):
-    timeFrameID = str(timeFrameIDRAW)
-    #############
-    ### [Time window declarations]
-    ### [A positive time in these comments indicates # of days prior to current (DAY 0)]
-    ### [eg: "0d -- 14d" = "From today (0d) through 14 days ago (14d)"]
-    #############
-    current_sys_datetime = datetime.datetime.now()
-    ######    0d -- 14d
-    def_s = current_sys_datetime - datetime.timedelta(days = 14)
-    def_e = current_sys_datetime - datetime.timedelta(days = 1)
-    ######    7d -- 21d
-    win1_s = current_sys_datetime - datetime.timedelta(days = 21)
-    win1_e = current_sys_datetime - datetime.timedelta(days = 7)
-    ######    14d -- 28d
-    win2_s = current_sys_datetime - datetime.timedelta(days = 28)
-    win2_e = current_sys_datetime - datetime.timedelta(days = 14)
-    ######    21d -- 35d
-    win3_s = current_sys_datetime - datetime.timedelta(days = 35)
-    win3_e = current_sys_datetime - datetime.timedelta(days = 21)
-
-    # return [def_s,def_e],[win1_s,win1_e],[win2_s,win2_e],[win3_s,win3_e]
-    if timeFrameID == "0":
-        return def_s,def_e
-    elif timeFrameID == "1":
-        return win1_s,win1_e
-    elif timeFrameID == "2":
-        return win2_s,win2_e
-    elif timeFrameID == "3":
-        return win3_s,win3_e
-    else: 
-        print("Error: timeWindowFrames -- Invalid arguments passed")
+############
 ### [Defining path to Temporary file]
 def cliArgumentParser(currentSystemDatetime):
     now = datetime.datetime.now()
-    default_start = now - datetime.timedelta(days = 28)
+    default_start = now - datetime.timedelta(days = 14)
     default_end = now - datetime.timedelta(days = 0)
     parser = argparse.ArgumentParser()
     parser.add_argument('--username', required=False, default="agriffin", ###### !! CHANGE FOR PROD !! #####
@@ -75,9 +43,9 @@ def cliArgumentParser(currentSystemDatetime):
                     help='Historic data start date (yyyy-mm-dd)')
     parser.add_argument('--end', default=default_end.strftime('%Y-%m-%d'),
                     help='Historic data end date (yyyy-mm-dd)')
-    parser.add_argument('--avgint', default="21600",
+    parser.add_argument('--avgint', default="3600",
                     help='Averaging interval. Smaller numbers increase api call time!'
-                        ' Default is 21600 seconds (6 hours)')
+                        ' Default is 3600')
     parser.add_argument('--debug', action='store_true', dest='debug',
                     help='add additional debugging fields to output')
     parser.add_argument('--percentile', default="99",
@@ -94,31 +62,13 @@ def xlsx_build():
     now_datetime = datetime.datetime.now()
     now = now_datetime.date()
 
-    t0BACK_headers = now
-    t7BACK_headers = now - datetime.timedelta(days = 7)
-    t14BACK_headers = now - datetime.timedelta(days = 14)
-    t21BACK_headers = now - datetime.timedelta(days = 21)
-    t28BACK_headers = now - datetime.timedelta(days = 28)
-
-    t0BACK_headers = t0BACK_headers.strftime('%m/%d')
-    t7BACK_headers = t7BACK_headers.strftime('%m/%d')
-    t14BACK_headers = t14BACK_headers.strftime('%m/%d')
-    t21BACK_headers = t21BACK_headers.strftime('%m/%d')
-    t28BACK_headers = t28BACK_headers.strftime('%m/%d')
-
     sheetHeaders = ['Location','Highest Traffic (Mb/s)','Choke Point (Device)','Choke Point Throttle (Mb/s)','Circuit Max Limit (Mb/s)',
-        'Circuit Utilization',
-        f'Choke Utilization ({t0BACK_headers} - {t7BACK_headers})',
-        f'Choke Utilization ({t7BACK_headers} -  {t14BACK_headers})',
-        f'Choke Utilization ({t14BACK_headers} - {t21BACK_headers})',
-        f'Choke Utilization ({t21BACK_headers} - {t28BACK_headers})',
-        'Max Usage Plan','Notes','Action']
+        'Circuit Utilization (Past 7 Days)',
+        f'Choke Utilization (Past 30 Days)','Max Usage Plan','Notes','Action']
 
     coreUtilSummaryHeaders = ['Core Utilization Summary','Bandwidth (Mb/s)',
-        f'Gross Utilization ({t0BACK_headers} - {t7BACK_headers})',
-        f'Gross Utilization ({t7BACK_headers} - {t14BACK_headers})',
-        f'Gross Utilization ({t14BACK_headers} - {t21BACK_headers})',
-        f'Gross Utilization ({t21BACK_headers} - {t28BACK_headers})']
+        f'Gross Utilization (Last 7 Days)',
+        f'Gross Utilization (Last 30 Days)']
 
     global alphabetArray
     alphabetArray = ['A','B','C','D','E','F','G','H','I','J','K','L','M']
@@ -256,40 +206,6 @@ def extract_tags(sensor):
 
     return device_properties
 
-def extract_datetime(response_tree):
-    timeFrame1_arr = []
-    timeFrame1_arr.clear()
-    timeFrame2_arr = []
-    timeFrame2_arr.clear()
-    timeFrame3_arr = []
-    timeFrame3_arr.clear()
-    timeFrame4_arr = []
-    timeFrame4_arr.clear()
-
-    now = datetime.datetime.now()
-    now = now.date()
-
-    historicResponseData = json.loads(response_tree.text)
-
-    i = 0
-    while i < len(historicResponseData['histdata']):
-        
-
-
-        i += 1
-    #return timeFrame1_arr,timeFrame2_arr,timeFrame3_arr,timeFrame4_arr
-
-    timeframe1_dict = {}
-    timeframe1_dict["histdata"] = timeFrame1_arr
-    timeframe2_dict = {}
-    timeframe2_dict["histdata"] = timeFrame2_arr
-    timeframe3_dict = {}
-    timeframe3_dict["histdata"] = timeFrame3_arr
-    timeframe4_dict = {}
-    timeframe4_dict["histdata"] = timeFrame4_arr
-
-    return [[timeframe1_dict,timeframe2_dict],[timeframe3_dict,timeframe4_dict]]
-
 def buildComps(loc_index,FrameWindow,datablock,historicResponseData,sensor,sensor_index):
     try:
         prtgDataDict[f'{FrameWindow} Weeks Back'] = {
@@ -316,12 +232,13 @@ def buildComps(loc_index,FrameWindow,datablock,historicResponseData,sensor,senso
 def storeAPIResponse(loc_index,sensordata,historicResponseData,sensor,sensor_index):
     #    prtgDataDict[str(sensor['device'])]['objid'] = sensor['objid']
     i = 0
+    py_formatted_datetime = datetime.datetime.now()
     while i < int(historicResponseData['treesize']):
         #dateBasedSectioning(sensordata, historicResponseData, sensor, sensor_index)
         indexHistoryDictionary = historicResponseData['histdata'][i]
         prtg_formatted_datetime = indexHistoryDictionary['datetime']
         try:
-            regex_datetimesrc = re.search(r'\d{1}/\d{2}/\d{4}',prtg_formatted_datetime)
+            regex_datetimesrc = re.search(r'\d{2}/\d{2}/\d{4}',prtg_formatted_datetime)
         except AttributeError:
             pass 
         if regex_datetimesrc:
