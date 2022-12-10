@@ -181,8 +181,11 @@ def normalize_traffic(data, label):
     """
     traffic_list = []
     for i in data['histdata']:
-        if i[label] !='':
-            traffic_list.append(int(i[label]) * 0.000008)
+        try:
+            if i[str(label)] !='':
+                traffic_list.append(int(i[label]) * 0.000008)
+        except:
+            traffic_list.append(1)
         else:
             traffic_list.append(1)
     return traffic_list
@@ -300,6 +303,8 @@ for sensor in sensors:
             summary_data.append({'segment': properties.get('kpi_seg'),
                                  'bandwidth': max_traffic,
                                  'limit': properties.get('kpi_cktmaxlimit')})
+        else:
+            pass
 
         # CHOKE POINT DEVICE 'kpi_choke'
         if properties.get('kpi_choke'):
