@@ -181,8 +181,10 @@ def normalize_traffic(data, label):
     """
     traffic_list = []
     for i in data['histdata']:
-        if i[label] != '':
-            traffic_list.append(i[label] * 0.000008)
+        if i[label] !='':
+            traffic_list.append(int(i[label]) * 0.000008)
+        else:
+            traffic_list.append(1)
     return traffic_list
 
 def extract_tags(sensor):
@@ -192,7 +194,7 @@ def extract_tags(sensor):
     'kpi_bandwidth kpi_seg=DIA kpi_choke=Circuit kpi_chokelimit=10000 kpi_cktmaxlimit=10000'
     
     """
-    target_tags = ['kpi_seg', 'kpi_choke', 'kpi_cktmaxlimit', 'kpi_siteid']
+    target_tags = ['kpi_seg', 'kpi_choke', 'kpi_cktmaxlimit', 'kpi_siteid', 'edge']
     def filter_tags(tags_list, property_string):
         """
         Takes a list of tags and splits them into a properties dict:
@@ -205,8 +207,11 @@ def extract_tags(sensor):
         properties = {}
         property_list = list(filter(lambda a: property_string in a, tags_list))
         for property in property_list:
-            key, value = property.split('=')
-            properties.update({key:value})
+            try:
+                key, value = property.split('=')
+                properties.update({key:value})
+            except:
+                properties["edge"] = "True"
         return properties
 
     device_properties = {}
@@ -343,195 +348,8 @@ for sensor in sensors:
             write_XLSX(row_index, int(i), out_array[int(i-1)])
             i += 1
         row_index += 1
-
-
-########################### Historical Data
-########################### Historical Data
-########################### Historical Data
-
-
-
-
-
-
-def get_kpi_sensor_ids_hist(username, password):
-    """
-    Returns a dict with the following format:
-    {'prtg-version': '22.1.74.1869',
-    'treesize': 2,
-    'sensors': [{'objid': 14398,
-      'objid_raw': 14398,
-      'device': 'ACA Edge (160.3.214.2)',
-      'device_raw': 'ACA Edge (160.3.214.2)'},
-    """
-    response = requests.get(
-        f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-        f'&avg={args.avgint}&sdate={back_28}-00-00&edate={back_14}-0-0'
-        f'&usecaption=1'
-        f'&username={args.username}&password={PRTG_PASSWORD}'
-        )
-    if response.status_code == 200:
-        response_tree = json.loads(response.text)
-        if args.sensorid:
-            for i in response_tree.get('sensors'):
-                if i['objid'] == int(args.sensorid):
-                    return [i]
-        else:
-            return response_tree.get('sensors')
-    else:
-        print("Error in sensor list request")
-        exit(1)
-
-
-
-def normalize_traffic_hist(data, label):
-    """
-    Takes an input of raw PRTG historic data and the label (ie 'Traffic In (speed)')
-    and multiplies the speeds by 0.00008 to get values in mbits/sec ( ((8 / 10) / 100) / 1000)
-    """
-    traffic_list = []
-    for i in data['histdata']:
-        if i[label] != '':
-            traffic_list.append(i[label] * 0.000008)
-    return traffic_list
-
-def extract_tags_hist(sensor):
-    """
-    Takes a sensor dictionary and extacts a properties dictionary from the tags
-    string returned by PRTG. The tags string will have a format something like this:
-    'kpi_bandwidth kpi_seg=DIA kpi_choke=Circuit kpi_chokelimit=10000 kpi_cktmaxlimit=10000'
-    
-    """
-    target_tags = ['kpi_seg', 'kpi_choke', 'kpi_cktmaxlimit', 'kpi_siteid']
-    def filter_tags_hist(tags_list, property_string):
-        """
-        Takes a list of tags and splits them into a properties dict:
-        ['kpi_choke=Circuit', kpi_chokelimit=10000'] becomes
-        {'kpi_choke':'Circuit', 'kpi_chokelimit':'10000'}
-        
-        This function exists because we might have tags like kpi_choke and kpi_chokelimit
-        that will both be found by the _in_ function
-        """
-        properties = {}
-        property_list = list(filter(lambda a: property_string in a, tags_list))
-        for property in property_list:
-            key, value = property.split('=')
-            properties.update({key:value})
-        return properties
-
-    device_properties = {}
-    tag_string = sensor['tags'].split()
-
-    for tag in target_tags:
-        device_properties.update(filter_tags(tag_string, tag))
-
-    return device_properties
-
-summary_data = []
-
-sensors_hist = get_kpi_sensor_ids_hist(args.username, PRTG_PASSWORD)
-# ! # ! # ! output_file = f'output_{args.start}--{args.end}.csv'
-#if args.output:
-#    if args.output.endswith('/'):
-#        output_file = args.output + output_file
-#    else:
-#        output_file = args.output + '/' + output_file
-#if args.debug:
-#    headers.insert(1, 'Device id')
-#    headers.insert(1, 'Device')
-
-for sensor in sensors_hist:
-    response = requests.get(
-            f'https://{PRTG_HOSTNAME}/api/historicdata.json?id={sensor["objid"]}'
-            f'&avg={args.avgint}&sdate={args.start}-00-00&edate={args.end}-23-59'
-            f'&usecaption=1'
-            f'&username={args.username}&password={PRTG_PASSWORD}')
-    if response.status_code == 200:
-
-        data = json.loads(response.text)
-
-        properties = extract_tags(sensor)
-
-        traffic_in = normalize_traffic(data, 'Traffic In (speed)')
-
-        traffic_out = normalize_traffic(data, 'Traffic Out (speed)')
-        
-        device_name = sensor['device'].split(' (')[0]
-
-        out_array = []
-
-        # LOCATION
-        if properties.get('kpi_siteid'):
-            out_array.append(re.sub("#", " ", properties['kpi_siteid']))
-        else:
-            out_array.append('NA')
-
-#        if args.debug:
-            # Device name (debug)
-#            out_array.append(device_name)
-
-            # Device id (debug)
-#            out_array.append(sensor['objid'])
-
-        # MAX TRAFFIC
-        max_traffic = 0
-        if properties.get('kpi_trafficdirection') == 'up':
-            if traffic_out == []:
-                out_array.append("NA")
-            else:
-                max_traffic = math.ceil(numpy.percentile(traffic_out, int(args.percentile)))
-                out_array.append(max_traffic)
-        else:
-            if traffic_in == []:
-                out_array.append("NA")
-            else:
-                max_traffic = math.ceil(numpy.percentile(traffic_in, int(args.percentile)))
-                out_array.append(max_traffic)
-
-        if "Core" in properties.get('kpi_seg'):
-            summary_data.append({'segment': properties.get('kpi_seg'),
-                                 'bandwidth': max_traffic,
-                                 'limit': properties.get('kpi_cktmaxlimit')})
-
-        # CHOKE POINT DEVICE 'kpi_choke'
-        if properties.get('kpi_choke'):
-            out_array.append(properties['kpi_choke'])
-        else:
-            out_array.append('NA')
-
-        # CHOKE POINT LIMIT 'kpi_chokelimit'
-        if properties.get('kpi_chokelimit'):
-            out_array.append(int(properties['kpi_chokelimit']))
-        else:
-            out_array.append('NA')
-
-        # CIRCUIT MAX LIMIT 'kpi_cktmaxlimit'
-        if properties.get('kpi_cktmaxlimit'):
-            out_array.append(int(properties['kpi_cktmaxlimit']))
-        else:
-            out_array.append('NA')
-
-        # CIRCUIT UTILIZATION
-        # max down / circuit max limit
-        if properties.get('kpi_cktmaxlimit'):
-            out_array.append(max_traffic / int(properties['kpi_cktmaxlimit']))
-        else:
-            out_array.append('NA')
-
-        # CHOKE UTILIZATION CURRENT
-        # max down / choke point limit
-        if properties.get('kpi_chokelimit'):
-            hist_choke_util_val=(int(max_traffic) / int(properties['kpi_chokelimit']))
-        else:
-            hist_choke_util_val="NA"
-
-
-        write_XLSX(row_index, 8, hist_choke_util_val)
-        row_index += 1
-
-
-
-
+    else: 
+        print("Error occurred")
 
 
 
