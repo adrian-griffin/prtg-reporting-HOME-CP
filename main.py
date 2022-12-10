@@ -298,12 +298,14 @@ for sensor in sensors:
             else:
                 max_traffic = math.ceil(numpy.percentile(traffic_in, int(args.percentile)))
                 out_array.append(max_traffic)
-
-        if "Core" in properties.get('kpi_seg'):
-            summary_data.append({'segment': properties.get('kpi_seg'),
-                                 'bandwidth': max_traffic,
-                                 'limit': properties.get('kpi_cktmaxlimit')})
-        else:
+        try:
+            if "Core" in properties.get('kpi_seg'):
+                summary_data.append({'segment': properties.get('kpi_seg'),
+                                    'bandwidth': max_traffic,
+                                    'limit': properties.get('kpi_cktmaxlimit')})
+            else:
+                pass
+        except:
             pass
 
         # CHOKE POINT DEVICE 'kpi_choke'
@@ -397,5 +399,5 @@ segment_total_list=[segment_bandwidth_total, segment_capacity_total, segment_sat
 seg_tot_row_index = 5
 seg_tot_col_index = 2
 while seg_tot_col_index < (len(segment_total_list)+2):
-    write_XLSX_seg(seg_tot_row_index, seg_tot_col_index, segment_list[int(seg_tot_col_index)-2])
+    write_XLSX_seg(seg_tot_row_index, seg_tot_col_index, segment_total_list[int(seg_tot_col_index)-2])
     seg_tot_col_index += 1
